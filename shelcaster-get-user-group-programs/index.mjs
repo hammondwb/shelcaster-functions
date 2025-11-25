@@ -8,13 +8,18 @@ export const handler = async (event) => {
   const { limit, lastKey } = event.queryStringParameters || {};
   const parsedLimit = limit ? +limit : 20;
 
+  const headers = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+  };
+
   try {
     const params = {
       TableName: "shelcaster-app",
       IndexName: "GSI1",
       KeyConditionExpression: "GSI1PK = :gsi1pk AND begins_with(GSI1SK, :gsi1sk)",
       ExpressionAttributeValues: marshall({
-        ":gsi1pk": `u#${userId}#g#101`,
+        ":gsi1pk": `u#${userId}#g#${groupId}`,
         ":gsi1sk": `p#`,
       }),
       Limit: parsedLimit,
@@ -29,6 +34,7 @@ export const handler = async (event) => {
 
     return {
       statusCode: 200,
+      headers,
       body: JSON.stringify({
         result: {
           ...result,
@@ -41,6 +47,7 @@ export const handler = async (event) => {
     console.error("Error querying DynamoDB", error);
     return {
       statusCode: 500,
+      headers,
       body: JSON.stringify({ message: "Internal Server Error", error: error.message }),
     };
   }

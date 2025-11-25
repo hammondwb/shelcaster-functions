@@ -1,0 +1,25 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ivs:CreateChannel",
+        "ivs:GetChannel",
+        "ivs:GetStream",
+        "ivs:StopStream",
+        "ivs:CreateStreamKey",
+        "ivs:GetStreamKey"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject"
+      ],
+      "Resource": "arn:aws:s3:::shelcaster-media-bucket/*"
+    }
+  ]
+}
