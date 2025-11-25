@@ -1,0 +1,12 @@
+{
+  "name": "shelcaster-invite-virtual-participant",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "dependencies": {
+    "@aws-sdk/client-ivs-realtime": "^3.0.0",
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/client-ecs": "^3.0.0",
+    "@aws-sdk/util-dynamodb": "^3.0.0"
+  }
+}
+

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shelcaster Virtual Participant</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #1a1a1a;
+      color: #fff;
+    }
+    #status {
+      padding: 10px;
+      background: #2a2a2a;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+    .status-item {
+      margin: 5px 0;
+    }
+    .connected { color: #4ade80; }
+    .disconnected { color: #f87171; }
+    audio {
+      width: 100%;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="status">
+    <div class="status-item">WebSocket: <span id="ws-status" class="disconnected">Disconnected</span></div>
+    <div class="status-item">Stage: <span id="stage-status" class="disconnected">Not Connected</span></div>
+    <div class="status-item">Track: <span id="track-status">None</span></div>
+  </div>
+
+  <audio id="audio-player" controls></audio>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
+
