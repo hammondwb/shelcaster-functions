@@ -1,5 +1,5 @@
 const { IVSRealTime, CreateParticipantTokenCommand } = require("@aws-sdk/client-ivs-realtime");
-const { DynamoDBClient, GetItemCommand } = require("@aws-sdk/client-dynamodb");
+const { DynamoDBClient, GetItemCommand, PutItemCommand } = require("@aws-sdk/client-dynamodb");
 const { marshall, unmarshall } = require("@aws-sdk/util-dynamodb");
 
 const ivsRealTimeClient = new IVSRealTime({ region: "us-east-1" });
@@ -46,18 +46,33 @@ exports.handler = async (event) => {
     }
 
     // Create participant token for caller
+    const userId = callerId || `caller-${Date.now()}`;
+
     const tokenCommand = new CreateParticipantTokenCommand({
       stageArn: show.stageArn,
       duration: 7200, // 2 hours
       capabilities: ['PUBLISH', 'SUBSCRIBE'],
-      userId: callerId || `caller-${Date.now()}`,
-      attributes: {
-        username: callerName,
-        role: 'caller',
-      },
+      userId: userId,
     });
 
     const tokenResponse = await ivsRealTimeClient.send(tokenCommand);
+
+    // Store caller/guest name in DynamoDB under the show
+    const putGuestParams = {
+      TableName: "shelcaster-app",
+      Item: marshall({
+        pk: `show#${showId}`,
+        sk: `guest#${userId}`,
+        name: callerName, // Use 'name' to match existing schema
+        userId: userId,
+        status: 'connected',
+        joinedAt: new Date().toISOString(),
+        ttl: Math.floor(Date.now() / 1000) + (24 * 60 * 60), // 24 hour TTL
+      }),
+    };
+
+    await dynamoDBClient.send(new PutItemCommand(putGuestParams));
+    console.log('Stored guest name:', userId, callerName);
 
     return {
       statusCode: 200,
@@ -65,6 +80,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         token: tokenResponse.participantToken.token,
         participantId: tokenResponse.participantToken.participantId,
+        userId: userId,
         stageArn: show.stageArn,
       }),
     };

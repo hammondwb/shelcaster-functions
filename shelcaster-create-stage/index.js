@@ -45,7 +45,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // If show already has a stage, return it with a new host token
+    // If show already has a stage, return it with a new host token and caller token
     if (show.stageArn) {
       const hostTokenCommand = new CreateParticipantTokenCommand({
         stageArn: show.stageArn,
@@ -58,15 +58,29 @@ exports.handler = async (event) => {
         },
       });
 
-      const tokenResponse = await ivsRealTimeClient.send(hostTokenCommand);
+      const callerTokenCommand = new CreateParticipantTokenCommand({
+        stageArn: show.stageArn,
+        duration: 7200, // 2 hours
+        capabilities: ['PUBLISH', 'SUBSCRIBE'],
+        // Don't set userId - let callers set their own
+        attributes: {
+          role: 'caller',
+        },
+      });
+
+      const [hostTokenResponse, callerTokenResponse] = await Promise.all([
+        ivsRealTimeClient.send(hostTokenCommand),
+        ivsRealTimeClient.send(callerTokenCommand),
+      ]);
 
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({
           stageArn: show.stageArn,
-          hostToken: tokenResponse.participantToken.token,
-          participantId: tokenResponse.participantToken.participantId,
+          hostToken: hostTokenResponse.participantToken.token,
+          callerToken: callerTokenResponse.participantToken.token,
+          participantId: hostTokenResponse.participantToken.participantId,
         }),
       };
     }
@@ -89,6 +103,19 @@ exports.handler = async (event) => {
 
     const stageResponse = await ivsRealTimeClient.send(createStageCommand);
     const { stage, participantTokens } = stageResponse;
+
+    // Create a caller token
+    const callerTokenCommand = new CreateParticipantTokenCommand({
+      stageArn: stage.arn,
+      duration: 7200, // 2 hours
+      capabilities: ['PUBLISH', 'SUBSCRIBE'],
+      // Don't set userId - let callers set their own
+      attributes: {
+        role: 'caller',
+      },
+    });
+
+    const callerTokenResponse = await ivsRealTimeClient.send(callerTokenCommand);
 
     // Update the show with stage information
     const updateShowParams = {
@@ -117,6 +144,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         stageArn: stage.arn,
         hostToken: participantTokens[0].token,
+        callerToken: callerTokenResponse.participantToken.token,
         participantId: participantTokens[0].participantId,
       }),
     };

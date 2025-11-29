@@ -1,9 +1,9 @@
 {
-  "name": "shelcaster-start-composition",
+  "name": "shelcaster-get-caller",
   "version": "1.0.0",
-  "type": "module",
+  "description": "Get caller information from DynamoDB",
+  "main": "index.js",
   "dependencies": {
-    "@aws-sdk/client-ivs-realtime": "^3.0.0",
     "@aws-sdk/client-dynamodb": "^3.0.0",
     "@aws-sdk/util-dynamodb": "^3.0.0"
   }

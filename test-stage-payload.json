@@ -1,0 +1,6 @@
+{
+  "pathParameters": {
+    "showId": "67f06970-4720-463d-8fd8-f9ddc7cdb2f2"
+  },
+  "body": "{\"userId\":\"test-user-456\"}"
+}
