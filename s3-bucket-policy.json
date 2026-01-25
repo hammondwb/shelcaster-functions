@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowIVSRecording",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ivs.amazonaws.com"
+      },
+      "Action": [
+        "s3:PutObject",
+        "s3:PutObjectAcl"
+      ],
+      "Resource": "arn:aws:s3:::shelcaster-media-manager/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:SourceAccount": "124355640062"
+        }
+      }
+    }
+  ]
+}
+

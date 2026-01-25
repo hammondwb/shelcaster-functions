@@ -6,6 +6,9 @@ const ivsClient = new Ivs({ region: "us-east-1" });
 const dynamoDBClient = new DynamoDBClient({ region: "us-east-1" });
 
 exports.handler = async (event) => {
+  console.log('=== CREATE IVS CHANNEL LAMBDA START ===');
+  console.log('Event:', JSON.stringify(event, null, 2));
+
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
@@ -17,7 +20,10 @@ exports.handler = async (event) => {
     const { showId } = event.pathParameters;
     const { userId } = JSON.parse(event.body || '{}');
 
+    console.log('ShowId:', showId, 'UserId:', userId);
+
     if (!showId || !userId) {
+      console.log('ERROR: Missing showId or userId');
       return {
         statusCode: 400,
         headers,
@@ -77,11 +83,16 @@ exports.handler = async (event) => {
 
     // Add recording configuration if available
     if (process.env.IVS_RECORDING_CONFIG_ARN) {
+      console.log('Adding recording config:', process.env.IVS_RECORDING_CONFIG_ARN);
       createChannelParams.recordingConfigurationArn = process.env.IVS_RECORDING_CONFIG_ARN;
+    } else {
+      console.log('WARNING: No IVS_RECORDING_CONFIG_ARN environment variable set');
     }
 
+    console.log('Creating IVS channel with params:', JSON.stringify(createChannelParams, null, 2));
     const channelResponse = await ivsClient.send(new CreateChannelCommand(createChannelParams));
     const { channel, streamKey } = channelResponse;
+    console.log('Channel created successfully:', channel.arn);
 
     // Update the show with IVS channel information
     const updateShowParams = {
@@ -90,8 +101,9 @@ exports.handler = async (event) => {
         pk: `show#${showId}`,
         sk: 'info',
       }),
-      UpdateExpression: 'SET #ivsChannelArn = :channelArn, #ivsStreamKey = :streamKey, #ivsIngestEndpoint = :ingestEndpoint, #ivsPlaybackUrl = :playbackUrl, #updatedAt = :updatedAt',
+      UpdateExpression: 'SET #channelArn = :channelArn, #ivsChannelArn = :channelArn, #ivsStreamKey = :streamKey, #ivsIngestEndpoint = :ingestEndpoint, #ivsPlaybackUrl = :playbackUrl, #updatedAt = :updatedAt',
       ExpressionAttributeNames: {
+        '#channelArn': 'channelArn',
         '#ivsChannelArn': 'ivsChannelArn',
         '#ivsStreamKey': 'ivsStreamKey',
         '#ivsIngestEndpoint': 'ivsIngestEndpoint',
@@ -108,7 +120,9 @@ exports.handler = async (event) => {
       ReturnValues: 'ALL_NEW',
     };
 
-    await dynamoDBClient.send(new UpdateItemCommand(updateShowParams));
+    console.log('Updating DynamoDB with channel info...');
+    const updateResult = await dynamoDBClient.send(new UpdateItemCommand(updateShowParams));
+    console.log('DynamoDB updated successfully');
 
     return {
       statusCode: 200,

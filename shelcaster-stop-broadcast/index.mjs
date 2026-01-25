@@ -1,9 +1,11 @@
 import { DynamoDBClient, UpdateItemCommand, GetItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { Ivs, StopStreamCommand, GetStreamCommand } from "@aws-sdk/client-ivs";
+import { IVSRealTimeClient, StopCompositionCommand } from "@aws-sdk/client-ivs-realtime";
 
 const dynamoDBClient = new DynamoDBClient({ region: "us-east-1" });
 const ivsClient = new Ivs({ region: "us-east-1" });
+const ivsRealTimeClient = new IVSRealTimeClient({ region: "us-east-1" });
 
 export const handler = async (event) => {
   const headers = {
@@ -48,6 +50,19 @@ export const handler = async (event) => {
     let finalViewerCount = 0;
     let peakViewerCount = show.peakViewerCount || 0;
 
+    // Stop the composition first (this is what streams Stage to Channel)
+    if (show.compositionArn) {
+      try {
+        await ivsRealTimeClient.send(new StopCompositionCommand({
+          arn: show.compositionArn
+        }));
+        console.log('Composition stopped successfully:', show.compositionArn);
+      } catch (error) {
+        console.log('Error stopping composition or already stopped:', error.message);
+      }
+    }
+
+    // Stop the IVS stream
     if (show.ivsChannelArn) {
       try {
         // Get final stream stats before stopping
@@ -76,7 +91,7 @@ export const handler = async (event) => {
         pk: `show#${showId}`,
         sk: 'info',
       }),
-      UpdateExpression: 'SET #status = :status, #actualEndTime = :actualEndTime, #finalViewerCount = :finalViewerCount, #peakViewerCount = :peakViewerCount, #streamHealth = :streamHealth, #updatedAt = :updatedAt',
+      UpdateExpression: 'SET #status = :status, #actualEndTime = :actualEndTime, #finalViewerCount = :finalViewerCount, #peakViewerCount = :peakViewerCount, #streamHealth = :streamHealth, #updatedAt = :updatedAt REMOVE #compositionArn',
       ExpressionAttributeNames: {
         '#status': 'status',
         '#actualEndTime': 'actualEndTime',
@@ -84,6 +99,7 @@ export const handler = async (event) => {
         '#peakViewerCount': 'peakViewerCount',
         '#streamHealth': 'streamHealth',
         '#updatedAt': 'updatedAt',
+        '#compositionArn': 'compositionArn',
       },
       ExpressionAttributeValues: marshall({
         ':status': 'completed',

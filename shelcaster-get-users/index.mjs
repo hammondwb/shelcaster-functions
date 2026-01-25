@@ -1,5 +1,4 @@
-
-import { DynamoDBClient, ScanCommand } from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient, QueryCommand } from "@aws-sdk/client-dynamodb";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 
 const dynamoDBClient = new DynamoDBClient();
@@ -10,27 +9,46 @@ export const handler = async () => {
     'Access-Control-Allow-Origin': '*',
   };
 
-  const params = {
+  // Use GSI to query by entityType - much more efficient than scan
+  const baseParams = {
     TableName: "shelcaster-app",
-    FilterExpression: "begins_with(pk, :userPrefix) AND sk = :infoKey",
+    IndexName: "entityType-index",
+    KeyConditionExpression: "entityType = :entityType",
     ExpressionAttributeValues: {
-      ":userPrefix": { S: "u#" },
-      ":infoKey": { S: "info" },
+      ":entityType": { S: "user#creator" },
     },
   };
 
   try {
-    const data = await dynamoDBClient.send(new ScanCommand(params));
+    // Handle pagination to get all users
+    let allUsers = [];
+    let lastEvaluatedKey = undefined;
 
-    const users = data.Items?.map(item => unmarshall(item)) || [];
+    do {
+      const params = {
+        ...baseParams,
+        ExclusiveStartKey: lastEvaluatedKey,
+      };
+
+      const data = await dynamoDBClient.send(new QueryCommand(params));
+
+      if (data.Items) {
+        const users = data.Items.map(item => unmarshall(item));
+        allUsers = allUsers.concat(users);
+      }
+
+      lastEvaluatedKey = data.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
+
+    console.log(`Returning ${allUsers.length} users`);
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ data: users }),
+      body: JSON.stringify({ data: allUsers }),
     };
   } catch (error) {
-    console.error("DynamoDB scan error:", error);
+    console.error("DynamoDB query error:", error);
     return {
       statusCode: 500,
       headers,

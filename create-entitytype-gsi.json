@@ -1,0 +1,17 @@
+[
+  {
+    "Create": {
+      "IndexName": "entityType-index",
+      "KeySchema": [
+        {
+          "AttributeName": "entityType",
+          "KeyType": "HASH"
+        }
+      ],
+      "Projection": {
+        "ProjectionType": "ALL"
+      }
+    }
+  }
+]
+
