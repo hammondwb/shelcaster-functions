@@ -1,0 +1,12 @@
+{
+  "name": "shelcaster-save-recording",
+  "version": "1.0.0",
+  "description": "Lambda function to save recording metadata",
+  "main": "index.mjs",
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/util-dynamodb": "^3.0.0"
+  }
+}
+
