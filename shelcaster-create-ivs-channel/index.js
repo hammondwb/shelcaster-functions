@@ -1,147 +1,106 @@
-const { Ivs, CreateChannelCommand, GetChannelCommand } = require("@aws-sdk/client-ivs");
-const { DynamoDBClient, UpdateItemCommand, GetItemCommand } = require("@aws-sdk/client-dynamodb");
-const { marshall, unmarshall } = require("@aws-sdk/util-dynamodb");
+/**
+ * shelcaster-create-ivs-channel
+ *
+ * Returns the shared IVS channel for broadcasting.
+ * This channel has recording configuration attached.
+ *
+ * Instead of creating a new channel every time, we reuse a single channel
+ * with auto-recording enabled.
+ */
 
-const ivsClient = new Ivs({ region: "us-east-1" });
+const { DynamoDBClient, UpdateItemCommand } = require("@aws-sdk/client-dynamodb");
+const { marshall } = require("@aws-sdk/util-dynamodb");
+
 const dynamoDBClient = new DynamoDBClient({ region: "us-east-1" });
 
+// Shared channel configuration (created with recording config attached)
+const SHARED_CHANNEL = {
+  arn: 'arn:aws:ivs:us-east-1:124355640062:channel/uXMHXvFStNZG',
+  name: 'shelcaster-main',
+  ingestEndpoint: 'ac3a1332d866.global-contribute.live-video.net',
+  playbackUrl: 'https://ac3a1332d866.us-east-1.playback.live-video.net/api/video/v1/us-east-1.124355640062.channel.uXMHXvFStNZG.m3u8',
+  streamKey: 'sk_us-east-1_C1m7dnEA5x7z_J9yKAFUZPDx8DFFGvbd2xuJMpVhC2M',
+  recordingConfigurationArn: 'arn:aws:ivs:us-east-1:124355640062:recording-configuration/NgV3p8AlWTTF',
+};
+
 exports.handler = async (event) => {
-  console.log('=== CREATE IVS CHANNEL LAMBDA START ===');
-  console.log('Event:', JSON.stringify(event, null, 2));
+  console.log('Event received:', JSON.stringify(event, null, 2));
 
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': '*',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
   };
 
   try {
-    const { showId } = event.pathParameters;
-    const { userId } = JSON.parse(event.body || '{}');
+    // Extract showId from path parameters or body
+    let showId;
 
-    console.log('ShowId:', showId, 'UserId:', userId);
+    if (event.pathParameters?.showId) {
+      showId = event.pathParameters.showId;
+    } else if (event.body) {
+      const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+      showId = body.showId;
+    }
 
-    if (!showId || !userId) {
-      console.log('ERROR: Missing showId or userId');
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: "Missing showId or userId parameter" }),
+    console.log('Returning shared channel for showId:', showId);
+
+    // Update the show in DynamoDB with the shared channel info
+    if (showId) {
+      const updateParams = {
+        TableName: "shelcaster-app",
+        Key: marshall({
+          pk: `show#${showId}`,
+          sk: 'info',
+        }),
+        UpdateExpression: 'SET #ivsChannelArn = :channelArn, #ivsPlaybackUrl = :playbackUrl, #ivsIngestEndpoint = :ingestEndpoint, #ivsStreamKey = :streamKey, #updatedAt = :updatedAt',
+        ExpressionAttributeNames: {
+          '#ivsChannelArn': 'ivsChannelArn',
+          '#ivsPlaybackUrl': 'ivsPlaybackUrl',
+          '#ivsIngestEndpoint': 'ivsIngestEndpoint',
+          '#ivsStreamKey': 'ivsStreamKey',
+          '#updatedAt': 'updatedAt',
+        },
+        ExpressionAttributeValues: marshall({
+          ':channelArn': SHARED_CHANNEL.arn,
+          ':playbackUrl': SHARED_CHANNEL.playbackUrl,
+          ':ingestEndpoint': SHARED_CHANNEL.ingestEndpoint,
+          ':streamKey': SHARED_CHANNEL.streamKey,
+          ':updatedAt': new Date().toISOString(),
+        }),
       };
+
+      await dynamoDBClient.send(new UpdateItemCommand(updateParams));
+      console.log('Updated show with shared channel info');
     }
 
-    // Get the show to check if it already has an IVS channel
-    const getShowParams = {
-      TableName: "shelcaster-app",
-      Key: marshall({
-        pk: `show#${showId}`,
-        sk: 'info',
-      }),
+    // Return the shared channel info
+    const response = {
+      channelArn: SHARED_CHANNEL.arn,
+      channelName: SHARED_CHANNEL.name,
+      ingestEndpoint: SHARED_CHANNEL.ingestEndpoint,
+      playbackUrl: SHARED_CHANNEL.playbackUrl,
+      streamKey: SHARED_CHANNEL.streamKey,
+      recordingEnabled: true,
+      recordingConfigurationArn: SHARED_CHANNEL.recordingConfigurationArn,
     };
-
-    const showResult = await dynamoDBClient.send(new GetItemCommand(getShowParams));
-    const show = showResult.Item ? unmarshall(showResult.Item) : null;
-
-    if (!show) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ message: "Show not found" }),
-      };
-    }
-
-    // If show already has an IVS channel, return it
-    if (show.ivsChannelArn) {
-      try {
-        const channelData = await ivsClient.send(new GetChannelCommand({
-          arn: show.ivsChannelArn
-        }));
-        
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({ 
-            channel: channelData.channel,
-            streamKey: show.ivsStreamKey,
-            playbackUrl: channelData.channel.playbackUrl,
-            ingestEndpoint: channelData.channel.ingestEndpoint,
-          }),
-        };
-      } catch (error) {
-        console.log('Existing channel not found, creating new one');
-      }
-    }
-
-    // Create new IVS channel with recording enabled (if configured)
-    const createChannelParams = {
-      name: `shelcaster-${showId}`,
-      latencyMode: 'LOW', // LOW for interactive streaming, NORMAL for standard
-      type: 'STANDARD', // STANDARD or BASIC
-      authorized: false, // Set to true if you want to restrict playback
-    };
-
-    // Add recording configuration if available
-    if (process.env.IVS_RECORDING_CONFIG_ARN) {
-      console.log('Adding recording config:', process.env.IVS_RECORDING_CONFIG_ARN);
-      createChannelParams.recordingConfigurationArn = process.env.IVS_RECORDING_CONFIG_ARN;
-    } else {
-      console.log('WARNING: No IVS_RECORDING_CONFIG_ARN environment variable set');
-    }
-
-    console.log('Creating IVS channel with params:', JSON.stringify(createChannelParams, null, 2));
-    const channelResponse = await ivsClient.send(new CreateChannelCommand(createChannelParams));
-    const { channel, streamKey } = channelResponse;
-    console.log('Channel created successfully:', channel.arn);
-
-    // Update the show with IVS channel information
-    const updateShowParams = {
-      TableName: "shelcaster-app",
-      Key: marshall({
-        pk: `show#${showId}`,
-        sk: 'info',
-      }),
-      UpdateExpression: 'SET #channelArn = :channelArn, #ivsChannelArn = :channelArn, #ivsStreamKey = :streamKey, #ivsIngestEndpoint = :ingestEndpoint, #ivsPlaybackUrl = :playbackUrl, #updatedAt = :updatedAt',
-      ExpressionAttributeNames: {
-        '#channelArn': 'channelArn',
-        '#ivsChannelArn': 'ivsChannelArn',
-        '#ivsStreamKey': 'ivsStreamKey',
-        '#ivsIngestEndpoint': 'ivsIngestEndpoint',
-        '#ivsPlaybackUrl': 'ivsPlaybackUrl',
-        '#updatedAt': 'updatedAt',
-      },
-      ExpressionAttributeValues: marshall({
-        ':channelArn': channel.arn,
-        ':streamKey': streamKey.value,
-        ':ingestEndpoint': channel.ingestEndpoint,
-        ':playbackUrl': channel.playbackUrl,
-        ':updatedAt': new Date().toISOString(),
-      }),
-      ReturnValues: 'ALL_NEW',
-    };
-
-    console.log('Updating DynamoDB with channel info...');
-    const updateResult = await dynamoDBClient.send(new UpdateItemCommand(updateShowParams));
-    console.log('DynamoDB updated successfully');
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({
-        channelArn: channel.arn,
-        streamKey: streamKey.value,
-        ingestEndpoint: channel.ingestEndpoint,
-        playbackUrl: channel.playbackUrl,
-      }),
+      body: JSON.stringify(response),
     };
+
   } catch (error) {
-    console.error('Error creating IVS channel:', error);
+    console.error('Error:', error);
+
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ 
-        message: "Failed to create IVS channel",
-        error: error.message 
+      body: JSON.stringify({
+        error: 'Failed to get channel info',
+        message: error.message
       }),
     };
   }

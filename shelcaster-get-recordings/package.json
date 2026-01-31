@@ -1,0 +1,13 @@
+{
+  "name": "shelcaster-get-recordings",
+  "version": "1.0.0",
+  "description": "Lambda function to get recordings for shows",
+  "main": "index.mjs",
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/util-dynamodb": "^3.0.0"
+  }
+}
+
