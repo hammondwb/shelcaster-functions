@@ -1,0 +1,15 @@
+{
+  "pathParameters": {
+    "showId": "4d380999-26e1-4778-a55e-27ec55f633aa"
+  },
+  "requestContext": {
+    "authorizer": {
+      "jwt": {
+        "claims": {
+          "sub": "test-user"
+        }
+      }
+    }
+  }
+}
+

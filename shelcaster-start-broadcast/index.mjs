@@ -6,6 +6,8 @@ const dynamoDBClient = new DynamoDBClient({ region: "us-east-1" });
 const ivsClient = new Ivs({ region: "us-east-1" });
 
 export const handler = async (event) => {
+  console.log('Event received:', JSON.stringify(event, null, 2));
+
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
@@ -15,6 +17,7 @@ export const handler = async (event) => {
 
   try {
     const { showId } = event.pathParameters;
+    console.log('Processing showId:', showId);
 
     if (!showId) {
       return {
@@ -35,8 +38,10 @@ export const handler = async (event) => {
 
     const showResult = await dynamoDBClient.send(new GetItemCommand(getShowParams));
     const show = showResult.Item ? unmarshall(showResult.Item) : null;
+    console.log('Show retrieved:', JSON.stringify(show, null, 2));
 
     if (!show) {
+      console.log('Show not found');
       return {
         statusCode: 404,
         headers,
@@ -45,12 +50,15 @@ export const handler = async (event) => {
     }
 
     if (!show.ivsChannelArn) {
+      console.log('Show does not have ivsChannelArn');
       return {
         statusCode: 400,
         headers,
         body: JSON.stringify({ message: "Show does not have an IVS channel. Create one first." }),
       };
     }
+
+    console.log('Show has channel ARN:', show.ivsChannelArn);
 
     const now = new Date().toISOString();
 
@@ -68,6 +76,7 @@ export const handler = async (event) => {
     }
 
     // Update show status to live
+    console.log('Updating show status to live...');
     const params = {
       TableName: "shelcaster-app",
       Key: marshall({
@@ -92,29 +101,43 @@ export const handler = async (event) => {
       ReturnValues: 'ALL_NEW',
     };
 
+    console.log('DynamoDB update params:', JSON.stringify(params, null, 2));
+
     const result = await dynamoDBClient.send(new UpdateItemCommand(params));
+    console.log('DynamoDB update successful');
     const updatedShow = unmarshall(result.Attributes);
+    console.log('Updated show:', JSON.stringify(updatedShow, null, 2));
+
+    const response = {
+      show: updatedShow,
+      streamInfo: {
+        playbackUrl: updatedShow.ivsPlaybackUrl,
+        ingestEndpoint: updatedShow.ivsIngestEndpoint,
+        streamKey: updatedShow.ivsStreamKey,
+        streamHealth,
+        viewerCount,
+      }
+    };
+
+    console.log('Returning success response:', JSON.stringify(response, null, 2));
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({
-        show: updatedShow,
-        streamInfo: {
-          playbackUrl: updatedShow.ivsPlaybackUrl,
-          ingestEndpoint: updatedShow.ivsIngestEndpoint,
-          streamKey: updatedShow.ivsStreamKey,
-          streamHealth,
-          viewerCount,
-        }
-      }),
+      body: JSON.stringify(response),
     };
   } catch (error) {
     console.error("Error starting broadcast:", error);
+    console.error("Error stack:", error.stack);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ message: "Internal server error", error: error.message }),
+      body: JSON.stringify({
+        message: "Internal server error",
+        error: error.message,
+        errorType: error.name,
+        stack: error.stack
+      }),
     };
   }
 };
