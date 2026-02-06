@@ -1,15 +1,1 @@
-{
-  "pathParameters": {
-    "showId": "4d380999-26e1-4778-a55e-27ec55f633aa"
-  },
-  "requestContext": {
-    "authorizer": {
-      "jwt": {
-        "claims": {
-          "sub": "test-user"
-        }
-      }
-    }
-  }
-}
-
+{"body":"{\"showId\":\"aef92dc2-a950-4e9e-b578-4507695dd857\"}","pathParameters":{},"requestContext":{"authorizer":{"jwt":{"claims":{"sub":"8418c498-1021-70d0-38c8-3f038ccbc024"}}}}}

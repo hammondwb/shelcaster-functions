@@ -1,0 +1,1 @@
+{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["ecs:RunTask","ecs:StopTask","ecs:DescribeTasks"],"Resource":"*"},{"Effect":"Allow","Action":["iam:PassRole"],"Resource":["arn:aws:iam::124355640062:role/ecsTaskExecutionRole","arn:aws:iam::124355640062:role/lambda-dynamodb-role","arn:aws:iam::124355640062:role/shelcaster-program-controller-task-role"]}]}

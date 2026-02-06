@@ -1,0 +1,36 @@
+{
+  "family": "shelcaster-program-controller",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "taskRoleArn": "arn:aws:iam::124355640062:role/shelcaster-program-controller-task-role",
+  "executionRoleArn": "arn:aws:iam::124355640062:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "program-controller",
+      "image": "124355640062.dkr.ecr.us-east-1.amazonaws.com/shelcaster-program-controller:latest",
+      "essential": true,
+      "environment": [
+        {
+          "name": "SESSION_ID",
+          "value": "eb7d44be-b93a-4742-91aa-ee3010fa6a05"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "us-east-1"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/shelcaster-program-controller",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ]
+}
+

@@ -1,0 +1,12 @@
+{
+  "name": "shelcaster-session-command",
+  "version": "1.0.0",
+  "description": "Handle LiveSession commands (SWITCH_SOURCE, etc.) for Shelcaster Studio",
+  "main": "index.mjs",
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/client-sqs": "^3.984.0",
+    "@aws-sdk/util-dynamodb": "^3.0.0"
+  }
+}

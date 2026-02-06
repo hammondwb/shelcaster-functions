@@ -1,0 +1,1 @@
+{"statusCode":409,"headers":{"Content-Type":"application/json","Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, POST, PUT, PATCH, DELETE, OPTIONS","Access-Control-Allow-Headers":"*"},"body":"{\"message\":\"Composition already running for this session.\",\"compositionArn\":\"arn:aws:ivs:us-east-1:124355640062:composition/UZC6UKEtve5P\"}"}

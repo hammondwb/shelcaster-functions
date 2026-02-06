@@ -1,0 +1,1 @@
+{"body":"{\"showId\":\"test-show-123\",\"episodeId\":\"test-episode-456\"}","requestContext":{"authorizer":{"claims":{"sub":"test-user-789"}}}}

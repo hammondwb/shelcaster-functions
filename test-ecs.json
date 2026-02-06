@@ -1,0 +1,1 @@
+{"body":"{\"showId\":\"aef92dc2-a950-4e9e-b578-4507695dd857\",\"hostUserId\":\"test-host-user\"}","requestContext":{"authorizer":{"jwt":{"claims":{"sub":"test-host-user"}}}}}

@@ -4,14 +4,35 @@
     {
       "Effect": "Allow",
       "Action": [
+        "ivs:CreateStage",
+        "ivs:DeleteStage",
+        "ivs:GetStage",
+        "ivs:ListStages",
         "ivs:CreateChannel",
+        "ivs:DeleteChannel",
         "ivs:GetChannel",
+        "ivs:ListChannels",
+        "ivs:UpdateChannel",
         "ivs:GetStream",
         "ivs:StopStream",
         "ivs:CreateStreamKey",
-        "ivs:GetStreamKey"
+        "ivs:GetStreamKey",
+        "ivs:CreateParticipantToken",
+        "ivs:StartComposition",
+        "ivs:StopComposition",
+        "ivs:GetComposition"
       ],
       "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sqs:SendMessage",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes"
+      ],
+      "Resource": "arn:aws:sqs:us-east-1:124355640062:shelcaster-program-commands*"
     },
     {
       "Effect": "Allow",

@@ -1,9 +1,12 @@
 import { IVSRealTimeClient, StartCompositionCommand } from "@aws-sdk/client-ivs-realtime";
-import { DynamoDBClient, GetItemCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient, QueryCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 
 const ivsClient = new IVSRealTimeClient({ region: "us-east-1" });
 const dynamoDBClient = new DynamoDBClient({ region: "us-east-1" });
+
+const TABLE_NAME = "shelcaster-app";
+const STORAGE_CONFIGURATION_ARN = "arn:aws:ivs:us-east-1:124355640062:storage-configuration/M2RhrYnOPLP7";
 
 export const handler = async (event) => {
   const headers = {
@@ -14,7 +17,9 @@ export const handler = async (event) => {
   };
 
   try {
-    const { showId } = event.pathParameters;
+    // ── Extract showId from path parameters ──
+    // API route: POST /shows/{showId}/start-composition
+    const showId = event.pathParameters?.showId;
 
     if (!showId) {
       return {
@@ -24,98 +29,152 @@ export const handler = async (event) => {
       };
     }
 
-    // Get show details
-    const getShowParams = {
-      TableName: "shelcaster-app",
-      Key: marshall({
-        pk: `show#${showId}`,
-        sk: 'info',
+    // ── Deterministic session resolution ──
+    // Find most recent ACTIVE LiveSession for this showId
+    const queryParams = {
+      TableName: TABLE_NAME,
+      IndexName: "entityType-index",
+      KeyConditionExpression: "entityType = :et",
+      FilterExpression: "showId = :showId AND #st = :status",
+      ExpressionAttributeNames: {
+        "#st": "status", // reserved word
+      },
+      ExpressionAttributeValues: marshall({
+        ":et": "liveSession",
+        ":showId": showId,
+        ":status": "ACTIVE",
       }),
     };
 
-    const showResult = await dynamoDBClient.send(new GetItemCommand(getShowParams));
-    const show = showResult.Item ? unmarshall(showResult.Item) : null;
+    const queryResult = await dynamoDBClient.send(new QueryCommand(queryParams));
+    const activeSessions = (queryResult.Items || []).map(item => unmarshall(item));
 
-    if (!show) {
+    if (activeSessions.length === 0) {
       return {
-        statusCode: 404,
+        statusCode: 409,
         headers,
-        body: JSON.stringify({ message: "Show not found" }),
+        body: JSON.stringify({ message: "No active session. Host must Join Stage first." }),
       };
     }
 
-    if (!show.stageArn) {
+    // Sort by createdAt DESC → pick newest
+    activeSessions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    if (activeSessions.length > 1) {
+      console.warn(
+        `WARNING: ${activeSessions.length} ACTIVE sessions for showId=${showId}. ` +
+        `Using newest: sessionId=${activeSessions[0].sessionId}, createdAt=${activeSessions[0].createdAt}`
+      );
+    }
+
+    const session = activeSessions[0];
+    const sessionId = session.sessionId;
+    console.log(`Resolved showId=${showId} → sessionId=${sessionId}`);
+
+    // ── Validate session has required IVS resources ──
+    if (!session.ivs?.programStageArn) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ message: "Show does not have a stage. Create stage first." }),
+        body: JSON.stringify({ message: "Session does not have a PROGRAM stage." }),
       };
     }
 
-    if (!show.ivsChannelArn) {
+    if (!session.ivs?.programChannelArn) {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ message: "Show does not have an IVS channel. Create channel first." }),
+        body: JSON.stringify({ message: "Session does not have a PROGRAM channel." }),
       };
     }
 
-    // Start composition
+    // Guard: composition already running
+    if (session.ivs?.compositionArn) {
+      return {
+        statusCode: 409,
+        headers,
+        body: JSON.stringify({
+          message: "Composition already running for this session.",
+          compositionArn: session.ivs.compositionArn,
+        }),
+      };
+    }
+
+    // ── Start composition on PROGRAM stage — SINGLE layout ──
+    // SINGLE = grid with no featured participant, gridGap 0.
+    // With one virtual participant on the PROGRAM stage this renders full-screen.
     const compositionParams = {
-      stageArn: show.stageArn,
+      stageArn: session.ivs.programStageArn,
       destinations: [
         {
           channel: {
-            channelArn: show.ivsChannelArn,
-            encoderConfigurationArn: process.env.ENCODER_CONFIGURATION_ARN, // Optional
+            channelArn: session.ivs.programChannelArn,
+            encoderConfigurationArn: process.env.ENCODER_CONFIGURATION_ARN || undefined,
+          },
+        },
+        {
+          s3: {
+            storageConfigurationArn: STORAGE_CONFIGURATION_ARN,
+            encoderConfigurationArns: process.env.ENCODER_CONFIGURATION_ARN
+              ? [process.env.ENCODER_CONFIGURATION_ARN]
+              : [],
           },
         },
       ],
       layout: {
         grid: {
-          featuredParticipantAttribute: "host", // Feature the host
+          gridGap: 0,
+          omitStoppedVideo: true,
+          videoAspectRatio: "VIDEO",
+          videoFillMode: "COVER",
         },
       },
     };
 
-    console.log('Starting composition with params:', JSON.stringify(compositionParams, null, 2));
+    console.log('Starting PROGRAM composition with params:', JSON.stringify(compositionParams, null, 2));
 
     const compositionResponse = await ivsClient.send(new StartCompositionCommand(compositionParams));
     const compositionArn = compositionResponse.composition.arn;
 
-    console.log('Composition started:', compositionArn);
+    console.log('PROGRAM composition started:', compositionArn);
 
-    // Update show with composition ARN
-    const updateShowParams = {
-      TableName: "shelcaster-app",
+    // ── Write compositionArn back to LiveSession ──
+    const updateParams = {
+      TableName: TABLE_NAME,
       Key: marshall({
-        pk: `show#${showId}`,
+        pk: `session#${sessionId}`,
         sk: 'info',
       }),
-      UpdateExpression: 'SET #compositionArn = :compositionArn, #status = :status, #updatedAt = :updatedAt',
+      UpdateExpression: 'SET #ivs.#compositionArn = :compositionArn, #streaming.#isLive = :isLive, #recording.#isRecording = :isRecording, #updatedAt = :updatedAt',
       ExpressionAttributeNames: {
+        '#ivs': 'ivs',
         '#compositionArn': 'compositionArn',
-        '#status': 'status',
+        '#streaming': 'streaming',
+        '#isLive': 'isLive',
+        '#recording': 'recording',
+        '#isRecording': 'isRecording',
         '#updatedAt': 'updatedAt',
       },
       ExpressionAttributeValues: marshall({
         ':compositionArn': compositionArn,
-        ':status': 'live',
+        ':isLive': true,
+        ':isRecording': true,
         ':updatedAt': new Date().toISOString(),
       }),
     };
 
-    await dynamoDBClient.send(new UpdateItemCommand(updateShowParams));
+    await dynamoDBClient.send(new UpdateItemCommand(updateParams));
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         compositionArn,
-        stageArn: show.stageArn,
-        channelArn: show.ivsChannelArn,
-        playbackUrl: show.ivsPlaybackUrl,
-        message: 'Composition started successfully',
+        programStageArn: session.ivs.programStageArn,
+        programChannelArn: session.ivs.programChannelArn,
+        programPlaybackUrl: session.ivs.programPlaybackUrl,
+        sessionId,
+        message: 'PROGRAM composition started successfully',
       }),
     };
   } catch (error) {

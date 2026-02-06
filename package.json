@@ -10,11 +10,14 @@
     "e2e:show": "node scripts/e2e-show-lifecycle.js"
   },
   "devDependencies": {
-    "jest": "^29.7.0",
-    "@types/jest": "^29.5.0",
-    "uuid": "^9.0.1",
     "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/credential-providers": "^3.0.0",
     "@aws-sdk/util-dynamodb": "^3.0.0",
-    "@aws-sdk/credential-providers": "^3.0.0"
+    "@types/jest": "^29.5.0",
+    "jest": "^29.7.0",
+    "uuid": "^9.0.1"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1"
   }
 }

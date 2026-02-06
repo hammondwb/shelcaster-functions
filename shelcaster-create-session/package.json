@@ -1,0 +1,15 @@
+{
+  "name": "shelcaster-create-session",
+  "version": "1.0.0",
+  "description": "Create LiveSession for Shelcaster Studio",
+  "main": "index.mjs",
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/client-ecs": "^3.0.0",
+    "@aws-sdk/client-ivs": "^3.0.0",
+    "@aws-sdk/client-ivs-realtime": "^3.0.0",
+    "@aws-sdk/util-dynamodb": "^3.0.0"
+  }
+}
+
