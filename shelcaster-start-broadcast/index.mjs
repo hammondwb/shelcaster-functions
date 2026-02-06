@@ -49,30 +49,26 @@ export const handler = async (event) => {
       };
     }
 
-    if (!show.ivsChannelArn) {
-      console.log('Show does not have ivsChannelArn');
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: "Show does not have an IVS channel. Create one first." }),
-      };
-    }
-
-    console.log('Show has channel ARN:', show.ivsChannelArn);
-
     const now = new Date().toISOString();
 
-    // Check if stream is already live
+    // Check stream health if a channel ARN is available
+    // New infrastructure: PROGRAM channel is on the LiveSession, not the Show
+    // Old infrastructure: channel was on show.ivsChannelArn
     let streamHealth = 'UNKNOWN';
     let viewerCount = 0;
-    try {
-      const streamData = await ivsClient.send(new GetStreamCommand({
-        channelArn: show.ivsChannelArn
-      }));
-      streamHealth = streamData.stream?.health || 'UNKNOWN';
-      viewerCount = streamData.stream?.viewerCount || 0;
-    } catch (error) {
-      console.log('No active stream yet:', error.message);
+    const channelArn = show.ivsChannelArn || null;
+    if (channelArn) {
+      try {
+        const streamData = await ivsClient.send(new GetStreamCommand({
+          channelArn
+        }));
+        streamHealth = streamData.stream?.health || 'UNKNOWN';
+        viewerCount = streamData.stream?.viewerCount || 0;
+      } catch (error) {
+        console.log('No active stream yet:', error.message);
+      }
+    } else {
+      console.log('No ivsChannelArn on Show — using new PROGRAM infrastructure (channel on LiveSession)');
     }
 
     // Update show status to live

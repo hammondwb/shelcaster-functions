@@ -1,6 +1,6 @@
 import { DynamoDBClient, PutItemCommand, GetItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { IVSRealTimeClient, CreateStageCommand } from "@aws-sdk/client-ivs-realtime";
+import { IVSRealTimeClient, CreateStageCommand, CreateParticipantTokenCommand } from "@aws-sdk/client-ivs-realtime";
 import { ECSClient, RunTaskCommand } from "@aws-sdk/client-ecs";
 import { randomUUID } from "crypto";
 
@@ -98,6 +98,22 @@ export const handler = async (event) => {
     const rawStageResponse = await ivsRealTimeClient.send(new CreateStageCommand(rawStageParams));
     const rawStageArn = rawStageResponse.stage.arn;
     console.log('RAW stage created:', rawStageArn);
+
+    // Generate host participant token for RAW stage
+    console.log('Generating host token for RAW stage...');
+    const hostTokenResponse = await ivsRealTimeClient.send(new CreateParticipantTokenCommand({
+      stageArn: rawStageArn,
+      duration: 7200, // 2 hours
+      capabilities: ['PUBLISH', 'SUBSCRIBE'],
+      userId: `host-${hostUserId}`,
+      attributes: {
+        username: 'Host',
+        role: 'host',
+      },
+    }));
+    const hostToken = hostTokenResponse.participantToken.token;
+    const hostParticipantId = hostTokenResponse.participantToken.participantId;
+    console.log('Host token generated, participantId:', hostParticipantId);
 
     // Create PROGRAM stage (where virtual participant publishes program feed)
     console.log('Creating PROGRAM stage...');
@@ -234,6 +250,9 @@ export const handler = async (event) => {
       body: JSON.stringify({
         message: 'LiveSession created successfully',
         session: liveSession,
+        // Host token for joining RAW stage (not persisted in DDB for security)
+        hostToken,
+        hostParticipantId,
       }),
     };
   } catch (error) {

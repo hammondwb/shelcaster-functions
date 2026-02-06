@@ -1,5 +1,5 @@
 const { IVSRealTime, CreateParticipantTokenCommand } = require("@aws-sdk/client-ivs-realtime");
-const { DynamoDBClient, GetItemCommand, PutItemCommand } = require("@aws-sdk/client-dynamodb");
+const { DynamoDBClient, GetItemCommand, PutItemCommand, QueryCommand } = require("@aws-sdk/client-dynamodb");
 const { marshall, unmarshall } = require("@aws-sdk/util-dynamodb");
 
 const ivsRealTimeClient = new IVSRealTime({ region: "us-east-1" });
@@ -25,34 +25,61 @@ exports.handler = async (event) => {
       };
     }
 
-    // Get the show to get the stage ARN
-    const getShowParams = {
+    // ── Deterministic session resolution ──
+    // Find most recent ACTIVE LiveSession for this showId to get rawStageArn
+    const queryParams = {
       TableName: "shelcaster-app",
-      Key: marshall({
-        pk: `show#${showId}`,
-        sk: 'info',
+      IndexName: "entityType-index",
+      KeyConditionExpression: "entityType = :et",
+      FilterExpression: "showId = :showId AND #st = :status",
+      ExpressionAttributeNames: {
+        "#st": "status",
+      },
+      ExpressionAttributeValues: marshall({
+        ":et": "liveSession",
+        ":showId": showId,
+        ":status": "ACTIVE",
       }),
     };
 
-    const showResult = await dynamoDBClient.send(new GetItemCommand(getShowParams));
-    const show = showResult.Item ? unmarshall(showResult.Item) : null;
+    const queryResult = await dynamoDBClient.send(new QueryCommand(queryParams));
+    const activeSessions = (queryResult.Items || []).map(item => unmarshall(item));
 
-    if (!show || !show.stageArn) {
+    if (activeSessions.length === 0) {
       return {
-        statusCode: 404,
+        statusCode: 409,
         headers,
-        body: JSON.stringify({ message: "Show or stage not found" }),
+        body: JSON.stringify({ message: "No active session. Host must Join Stage first." }),
       };
     }
 
-    // Create participant token for caller
+    // Sort by createdAt DESC → pick newest
+    activeSessions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const session = activeSessions[0];
+    const rawStageArn = session.ivs?.rawStageArn;
+
+    if (!rawStageArn) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ message: "Active session does not have a RAW stage." }),
+      };
+    }
+
+    console.log(`Resolved showId=${showId} → sessionId=${session.sessionId}, rawStageArn=${rawStageArn}`);
+
+    // Create participant token for caller on the RAW stage
     const userId = callerId || `caller-${Date.now()}`;
 
     const tokenCommand = new CreateParticipantTokenCommand({
-      stageArn: show.stageArn,
+      stageArn: rawStageArn,
       duration: 7200, // 2 hours
       capabilities: ['PUBLISH', 'SUBSCRIBE'],
       userId: userId,
+      attributes: {
+        username: callerName,
+        role: 'caller',
+      },
     });
 
     const tokenResponse = await ivsRealTimeClient.send(tokenCommand);
@@ -81,7 +108,8 @@ exports.handler = async (event) => {
         token: tokenResponse.participantToken.token,
         participantId: tokenResponse.participantToken.participantId,
         userId: userId,
-        stageArn: show.stageArn,
+        stageArn: rawStageArn,
+        sessionId: session.sessionId,
       }),
     };
   } catch (error) {
