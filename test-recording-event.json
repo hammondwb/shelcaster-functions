@@ -1,0 +1,23 @@
+{
+  "Records": [
+    {
+      "eventVersion": "2.1",
+      "eventSource": "aws:s3",
+      "awsRegion": "us-east-1",
+      "eventTime": "2026-02-08T05:21:14.617Z",
+      "eventName": "ObjectCreated:Put",
+      "s3": {
+        "s3SchemaVersion": "1.0",
+        "configurationId": "ivs-realtime-multivariant",
+        "bucket": {
+          "name": "shelcaster-media-manager",
+          "arn": "arn:aws:s3:::shelcaster-media-manager"
+        },
+        "object": {
+          "key": "1ZdqQIgqe4RY/aI5GQ1QVCYdQ/ToS5RM5OMKXD/composite/media/hls/multivariant.m3u8",
+          "size": 243
+        }
+      }
+    }
+  ]
+}

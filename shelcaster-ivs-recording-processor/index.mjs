@@ -1,13 +1,17 @@
 /**
  * IVS Recording Processor Lambda
- * 
- * Triggered by S3 events when IVS recording files are created.
- * Creates a program entry in DynamoDB and updates recording metadata.
- * Also syncs to Algolia for search.
+ *
+ * Triggered by S3 events when IVS Real-Time composition recording files are created.
+ * Creates a program entry in DynamoDB matching the Media Manager schema
+ * (same format as shelcaster-export-recording / shelcaster-create-user-programs).
+ * Also updates the recording entity and syncs to Algolia for search.
+ *
+ * IVS Real-Time composition S3 path format varies — we match by composition ID
+ * found in the S3 key against compositionArn stored on LiveSession entities.
  */
 
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, QueryCommand, UpdateCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Client, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { algoliasearch } from 'algoliasearch';
 import { randomUUID } from 'crypto';
@@ -20,16 +24,11 @@ const ALGOLIA_APP_ID = process.env.ALGOLIA_APP_ID || 'KF42QHSMVK';
 const ALGOLIA_ADMIN_KEY = process.env.ALGOLIA_ADMIN_KEY;
 const ALGOLIA_INDEX_NAME = 'programs';
 
-// IVS recording path format: ivs/v1/{account}/{channel_id}/{year}/{month}/{day}/{hour}/{recording_id}/media/hls/master.m3u8
-// We trigger on the master.m3u8 file which indicates recording is complete
-
 // SAFEGUARDS against recursive invocations:
-// 1. Only process files matching IVS path pattern (starts with "ivs/")
-// 2. Only process master.m3u8 files
-// 3. Check if already processed before creating program entry
-// 4. This Lambda does NOT write to S3, only reads - no recursive trigger possible
+// 1. Only process master.m3u8 files (indicates recording is complete)
+// 2. Check if already processed before creating program entry
+// 3. This Lambda does NOT write to S3, only reads — no recursive trigger possible
 
-const IVS_PATH_PREFIX = 'ivs/';
 const PROCESSED_CACHE = new Set(); // In-memory cache for this invocation
 
 export const handler = async (event) => {
@@ -39,19 +38,13 @@ export const handler = async (event) => {
     const bucket = record.s3.bucket.name;
     const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
 
-    // SAFEGUARD 1: Only process IVS recording paths
-    if (!key.startsWith(IVS_PATH_PREFIX)) {
-      console.log('Skipping non-IVS path:', key);
+    // SAFEGUARD 1: Only process master.m3u8 or multivariant.m3u8 files (indicates complete recording)
+    if (!key.endsWith('master.m3u8') && !key.endsWith('multivariant.m3u8')) {
+      console.log('Skipping non-manifest file:', key);
       continue;
     }
 
-    // SAFEGUARD 2: Only process master.m3u8 files (indicates complete recording)
-    if (!key.endsWith('master.m3u8')) {
-      console.log('Skipping non-master file:', key);
-      continue;
-    }
-
-    // SAFEGUARD 3: Skip if already processed in this invocation (batch events)
+    // SAFEGUARD 2: Skip if already processed in this invocation (batch events)
     if (PROCESSED_CACHE.has(key)) {
       console.log('Already processed in this invocation:', key);
       continue;
@@ -59,26 +52,38 @@ export const handler = async (event) => {
     PROCESSED_CACHE.add(key);
 
     console.log('Processing IVS recording:', { bucket, key });
-    
+
     try {
-      // Parse the IVS path to extract channel info
-      // Format: ivs/v1/{account}/{channel_id}/{year}/{month}/{day}/{hour}/{recording_id}/media/hls/master.m3u8
-      const pathParts = key.split('/');
-      const channelId = pathParts[3]; // IVS channel ID
-      const recordingId = pathParts[8]; // IVS recording ID
-      
-      // Find the show and user associated with this channel
-      const showInfo = await findShowByChannel(channelId);
-      
-      if (!showInfo) {
-        console.log('No show found for channel:', channelId);
+      // Find the session and show associated with this recording
+      // IVS Real-Time composition paths contain the composition ID as a path segment.
+      // We match path segments against compositionArn stored on LiveSession entities.
+      const pathSegments = key.split('/');
+      const sessionInfo = await findSessionForRecording(pathSegments);
+
+      if (!sessionInfo) {
+        console.log('No session found for recording path:', key);
+        console.log('Path segments tried:', pathSegments);
         continue;
       }
-      
-      const { showId, showTitle, userId } = showInfo;
 
-      // SAFEGUARD 4: Check if this recording was already processed
-      const existingProgram = await findExistingProgramByS3Key(userId, key);
+      const { showId, sessionId } = sessionInfo;
+
+      // Get the show for groupId, producerId, title
+      const show = await getShow(showId);
+      if (!show) {
+        console.log('No show found for showId:', showId);
+        continue;
+      }
+
+      const { producerId, groupId, title: showTitle } = show;
+
+      if (!groupId) {
+        console.log('Show does not have a groupId (Media Manager group). Skipping:', showId);
+        continue;
+      }
+
+      // SAFEGUARD 3: Check if this recording was already processed
+      const existingProgram = await findExistingProgramByS3Key(producerId, key);
       if (existingProgram) {
         console.log('Recording already processed, skipping:', { key, existingProgramId: existingProgram.programId });
         continue;
@@ -88,111 +93,154 @@ export const handler = async (event) => {
       const fileSize = await getRecordingSize(bucket, key);
 
       // Build the CloudFront URL for the recording
-      const cloudfrontDomain = process.env.CLOUDFRONT_DOMAIN || 'd2jyqxlv5zply3.cloudfront.net';
+      const cloudfrontDomain = process.env.CLOUDFRONT_DOMAIN || 'd2kyyx47f0bavc.cloudfront.net';
       const playbackUrl = `https://${cloudfrontDomain}/${key}`;
 
-      // Create program entry in DynamoDB
+      // Create program entry matching Media Manager schema exactly
+      // (same structure as shelcaster-export-recording / shelcaster-create-user-programs)
       const programId = randomUUID();
       const now = new Date().toISOString();
 
       const programItem = {
-        pk: `u#${userId}#programs`,
-        sk: `program#${programId}`,
+        pk: `u#${producerId}#programs`,
+        sk: `p#${programId}`,
+        entityType: 'program',
+        GSI1PK: `u#${producerId}#g#${groupId}`,
+        GSI1SK: `p#${programId}`,
+        groupId,
+        ownerId: producerId,
         programId,
-        title: `Recording: ${showTitle || 'Untitled Show'}`,
+        title: `${showTitle || 'Untitled Show'} - Recording`,
         description: `Recorded on ${new Date().toLocaleDateString()}`,
         broadcast_type: 'Video HLS',
         program_url: playbackUrl,
-        program_image: null, // Could generate thumbnail later
-        groupId: 'Recordings', // Default group for recordings
+        program_image: null,
         premium: false,
+        duration: 0,
         tags: ['recording', 'ivs'],
         created_date: now,
         createdAt: now,
         updatedAt: now,
-        // Additional metadata
         sourceType: 'ivs-recording',
         sourceShowId: showId,
-        ivsRecordingId: recordingId,
         s3Bucket: bucket,
         s3Key: key,
         fileSize,
       };
 
-      // Save program to DynamoDB (with condition to prevent duplicates)
+      // Save program to DynamoDB
       await dynamoClient.send(new PutCommand({
         TableName: TABLE_NAME,
         Item: programItem,
-        ConditionExpression: 'attribute_not_exists(pk)', // Only create if doesn't exist
       }));
-      
+
       console.log('Program created:', programId);
-      
+
+      // Increment programsCount on the group (matches shelcaster-export-recording)
+      await dynamoClient.send(new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: { pk: `u#${producerId}#groups`, sk: `g#${groupId}` },
+        UpdateExpression: 'SET programsCount = if_not_exists(programsCount, :zero) + :one, updatedAt = :now',
+        ExpressionAttributeValues: { ':zero': 0, ':one': 1, ':now': now },
+      }));
+
       // Update recording metadata if it exists
-      await updateRecordingMetadata(showId, recordingId, {
+      await updateRecordingMetadata(showId, {
         status: 'completed',
         s3Bucket: bucket,
         s3Key: key,
         size: fileSize,
         playbackUrl,
-        programId, // Link to the program entry
+        programId,
       });
-      
+
       // Sync to Algolia
       if (ALGOLIA_ADMIN_KEY) {
         await syncProgramToAlgolia(programItem);
       }
-      
-      console.log('Recording processed successfully:', { programId, showId, userId });
-      
+
+      console.log('Recording processed successfully:', { programId, showId, producerId, groupId });
+
     } catch (error) {
       console.error('Error processing recording:', error);
       throw error;
     }
   }
-  
+
   return { statusCode: 200, body: 'OK' };
 };
 
-// Find show by IVS channel ID
-async function findShowByChannel(channelId) {
-  // Query shows GSI to find show with matching channel
-  const response = await dynamoClient.send(new QueryCommand({
-    TableName: TABLE_NAME,
-    IndexName: 'GSI1',
-    KeyConditionExpression: 'GSI1PK = :gsi1pk',
-    FilterExpression: 'contains(channelArn, :channelId)',
-    ExpressionAttributeValues: {
-      ':gsi1pk': 'SHOW',
-      ':channelId': channelId,
-    },
-  }));
-  
-  if (response.Items && response.Items.length > 0) {
-    const show = response.Items[0];
-    // Extract userId from pk (format: producer#{userId})
-    const userId = show.pk?.replace('producer#', '') || show.userId;
-    return {
-      showId: show.showId,
-      showTitle: show.title || show.showTitle,
-      userId,
-      channelArn: show.channelArn,
-    };
+/**
+ * Find the LiveSession that owns this recording by matching path segments
+ * against compositionArn or channelArn stored on sessions.
+ *
+ * IVS Real-Time composition S3 paths contain the composition ID as a segment.
+ * We query all live sessions and check if any compositionArn or channelArn
+ * matches a segment in the S3 key.
+ */
+async function findSessionForRecording(pathSegments) {
+  try {
+    const response = await dynamoClient.send(new QueryCommand({
+      TableName: TABLE_NAME,
+      IndexName: 'entityType-index',
+      KeyConditionExpression: 'entityType = :et',
+      ExpressionAttributeValues: { ':et': 'liveSession' },
+    }));
+
+    if (!response.Items || response.Items.length === 0) return null;
+
+    for (const session of response.Items) {
+      const ivs = session.ivs || {};
+
+      // Try matching by compositionArn (extract ID after last '/')
+      if (ivs.compositionArn) {
+        const compId = ivs.compositionArn.split('/').pop();
+        if (compId && pathSegments.includes(compId)) {
+          console.log('Matched session by compositionArn:', session.sessionId);
+          return { showId: session.showId, sessionId: session.sessionId };
+        }
+      }
+
+      // Fallback: try matching by programChannelArn
+      const channelArn = ivs.programChannelArn || ivs.channelArn;
+      if (channelArn) {
+        const channelId = channelArn.split('/').pop();
+        if (channelId && pathSegments.includes(channelId)) {
+          console.log('Matched session by channelArn:', session.sessionId);
+          return { showId: session.showId, sessionId: session.sessionId };
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error finding session for recording:', error);
   }
-  
+
   return null;
 }
 
-// Check if a program already exists for this S3 key (prevents duplicate processing)
-async function findExistingProgramByS3Key(userId, s3Key) {
+// Get show details by showId
+async function getShow(showId) {
   try {
-    // Query all programs for this user and filter by s3Key
+    const response = await dynamoClient.send(new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: `show#${showId}`, sk: 'info' },
+    }));
+    return response.Item || null;
+  } catch (error) {
+    console.error('Error getting show:', error);
+    return null;
+  }
+}
+
+// Check if a program already exists for this S3 key (prevents duplicate processing)
+async function findExistingProgramByS3Key(producerId, s3Key) {
+  try {
     const response = await dynamoClient.send(new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: 'pk = :pk',
       FilterExpression: 's3Key = :s3Key',
       ExpressionAttributeValues: {
-        ':pk': `u#${userId}#programs`,
+        ':pk': `u#${producerId}#programs`,
         ':s3Key': s3Key,
       },
       Limit: 1,
@@ -211,13 +259,10 @@ async function findExistingProgramByS3Key(userId, s3Key) {
 // Get total size of recording files
 async function getRecordingSize(bucket, masterKey) {
   try {
-    // For now, just get the master.m3u8 size as a placeholder
-    // In production, you'd list all .ts segments and sum their sizes
     const response = await s3Client.send(new HeadObjectCommand({
       Bucket: bucket,
       Key: masterKey,
     }));
-
     return response.ContentLength || 0;
   } catch (error) {
     console.error('Error getting recording size:', error);
@@ -226,9 +271,9 @@ async function getRecordingSize(bucket, masterKey) {
 }
 
 // Update recording metadata in DynamoDB
-async function updateRecordingMetadata(showId, _ivsRecordingId, updates) {
+async function updateRecordingMetadata(showId, updates) {
   try {
-    // Find the recording entry by showId
+    // Find the most recent recording entry for this show
     const response = await dynamoClient.send(new QueryCommand({
       TableName: TABLE_NAME,
       KeyConditionExpression: 'pk = :pk AND begins_with(sk, :sk)',
@@ -236,7 +281,7 @@ async function updateRecordingMetadata(showId, _ivsRecordingId, updates) {
         ':pk': `show#${showId}`,
         ':sk': 'recording#',
       },
-      ScanIndexForward: false, // Get most recent first
+      ScanIndexForward: false, // Most recent first
       Limit: 1,
     }));
 
@@ -284,10 +329,9 @@ async function syncProgramToAlgolia(program) {
       tags: program.tags || [],
       created_date: program.created_date,
       groupId: program.groupId,
-      groupName: program.groupId, // Will be 'Recordings'
       program_url: program.program_url,
       program_image: program.program_image,
-      userId: program.pk.split('#')[1], // Extract userId from pk
+      ownerId: program.ownerId,
       created_timestamp: new Date(program.created_date).getTime(),
     };
 

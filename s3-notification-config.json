@@ -1,0 +1,34 @@
+{
+  "LambdaFunctionConfigurations": [
+    {
+      "Id": "ivs-realtime-multivariant",
+      "LambdaFunctionArn": "arn:aws:lambda:us-east-1:124355640062:function:shelcaster-ivs-recording-processor",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {
+        "Key": {
+          "FilterRules": [
+            {
+              "Name": "Suffix",
+              "Value": "multivariant.m3u8"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "Id": "ivs-standard-master",
+      "LambdaFunctionArn": "arn:aws:lambda:us-east-1:124355640062:function:shelcaster-ivs-recording-processor",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {
+        "Key": {
+          "FilterRules": [
+            {
+              "Name": "Suffix",
+              "Value": "master.m3u8"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+    "Items": [
+        {
+            "mediaFiles": {
+                "L": [
+                    {
+                        "S": "https://d2kyyx47f0bavc.cloudfront.net/users/34a8b4f8-90b1-70df-eebe-def6a75e05db/programs/files/1769651186544-(JINGLE) - Stevie B’s Acappella Gospel Music Blast.mp3"
+                    }
+                ]
+            },
+            "groupId": {
+                "S": "jingle-ste-mkxgliyv-hh81l6"
+            },
+            "groupName": {
+                "S": "Jingle - Stevie B Acappella Gospel Music Blast"
+            },
+            "GSI1SK": {
+                "S": "p#jingle---stevie-b--acappella-gospel-music-blast-1769651186732-0"
+            },
+            "title": {
+                "S": "Jingle - Stevie B. Acappella Gospel Music Blast"
+            },
+            "description": {
+                "S": ""
+            },
+            "program_url": {
+                "S": "https://d2kyyx47f0bavc.cloudfront.net/users/34a8b4f8-90b1-70df-eebe-def6a75e05db/programs/files/1769651186544-(JINGLE) - Stevie B’s Acappella Gospel Music Blast.mp3"
+            },
+            "entityType": {
+                "S": "program"
+            },
+            "broadcast_type": {
+                "S": "Audio mp3"
+            },
+            "pk": {
+                "S": "u#34a8b4f8-90b1-70df-eebe-def6a75e05db#programs"
+            },
+            "programId": {
+                "S": "jingle---stevie-b--acappella-gospel-music-blast-1769651186732-0"
+            },
+            "imageFiles": {
+                "L": [
+                    {
+                        "S": "https://d2kyyx47f0bavc.cloudfront.net/users/34a8b4f8-90b1-70df-eebe-def6a75e05db/programs/files/1769651186046-butler2.jpg"
+                    }
+                ]
+            },
+            "GSI1PK": {
+                "S": "u#34a8b4f8-90b1-70df-eebe-def6a75e05db#g#jingle-ste-mkxgliyv-hh81l6"
+            },
+            "ownerId": {
+                "S": "34a8b4f8-90b1-70df-eebe-def6a75e05db"
+            },
+            "premium": {
+                "BOOL": false
+            },
+            "sk": {
+                "S": "p#jingle---stevie-b--acappella-gospel-music-blast-1769651186732-0"
+            },
+            "program_image": {
+                "S": "https://d2kyyx47f0bavc.cloudfront.net/users/34a8b4f8-90b1-70df-eebe-def6a75e05db/programs/files/1769651186046-butler2.jpg"
+            },
+            "duration": {
+                "N": "4"
+            }
+        }
+    ],
+    "Count": 1,
+    "ScannedCount": 1,
+    "LastEvaluatedKey": {
+        "pk": {
+            "S": "u#34a8b4f8-90b1-70df-eebe-def6a75e05db#programs"
+        },
+        "entityType": {
+            "S": "program"
+        },
+        "sk": {
+            "S": "p#jingle---stevie-b--acappella-gospel-music-blast-1769651186732-0"
+        }
+    }
+}

@@ -6,7 +6,7 @@ const ivsClient = new IVSRealTimeClient({ region: "us-east-1" });
 const dynamoDBClient = new DynamoDBClient({ region: "us-east-1" });
 
 const TABLE_NAME = "shelcaster-app";
-const STORAGE_CONFIGURATION_ARN = "arn:aws:ivs:us-east-1:124355640062:storage-configuration/M2RhrYnOPLP7";
+const STORAGE_CONFIGURATION_ARN = process.env.STORAGE_CONFIGURATION_ARN;
 
 export const handler = async (event) => {
   const headers = {
@@ -100,11 +100,11 @@ export const handler = async (event) => {
       };
     }
 
-    // ── Start composition on PROGRAM stage — SINGLE layout ──
+    // ── Start composition on RAW stage (where host + callers publish) ──
+    // Compose directly from RAW stage to PROGRAM channel
     // SINGLE = grid with no featured participant, gridGap 0.
-    // With one virtual participant on the PROGRAM stage this renders full-screen.
     const compositionParams = {
-      stageArn: session.ivs.programStageArn,
+      stageArn: session.ivs.rawStageArn,  // Changed from programStageArn to rawStageArn
       destinations: [
         {
           channel: {

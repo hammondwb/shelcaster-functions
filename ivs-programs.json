@@ -1,0 +1,95 @@
+{
+    "Items": [
+        {
+            "entityType": {
+                "S": "program"
+            },
+            "program_url": {
+                "S": "https://d2kyyx47f0bavc.cloudfront.net/1ZdqQIgqe4RY/aI5GQ1QVCYdQ/ToS5RM5OMKXD/composite/media/hls/multivariant.m3u8"
+            },
+            "s3Bucket": {
+                "S": "shelcaster-media-manager"
+            },
+            "groupId": {
+                "S": "2074fb7e-1fad-4a3d-9fdc-81f33e7657dc"
+            },
+            "created_date": {
+                "S": "2026-02-08T05:33:14.836Z"
+            },
+            "sourceShowId": {
+                "S": "23bacfac-160c-4765-a82c-48862daf5b73"
+            },
+            "createdAt": {
+                "S": "2026-02-08T05:33:14.836Z"
+            },
+            "broadcast_type": {
+                "S": "Video HLS"
+            },
+            "GSI1SK": {
+                "S": "p#4cd723ad-da54-4848-8050-5c2fdc0fe648"
+            },
+            "ownerId": {
+                "S": "74d8d488-8091-70ab-0744-729b2240baf5"
+            },
+            "GSI1PK": {
+                "S": "u#74d8d488-8091-70ab-0744-729b2240baf5#g#2074fb7e-1fad-4a3d-9fdc-81f33e7657dc"
+            },
+            "fileSize": {
+                "N": "243"
+            },
+            "program_image": {
+                "NULL": true
+            },
+            "premium": {
+                "BOOL": false
+            },
+            "sourceType": {
+                "S": "ivs-recording"
+            },
+            "programId": {
+                "S": "4cd723ad-da54-4848-8050-5c2fdc0fe648"
+            },
+            "updatedAt": {
+                "S": "2026-02-08T05:33:14.836Z"
+            },
+            "sk": {
+                "S": "p#4cd723ad-da54-4848-8050-5c2fdc0fe648"
+            },
+            "description": {
+                "S": "Recorded on 2/8/2026"
+            },
+            "pk": {
+                "S": "u#74d8d488-8091-70ab-0744-729b2240baf5#programs"
+            },
+            "duration": {
+                "N": "0"
+            },
+            "tags": {
+                "L": [
+                    {
+                        "S": "recording"
+                    },
+                    {
+                        "S": "ivs"
+                    }
+                ]
+            },
+            "title": {
+                "S": "Test Show 5 - Recording"
+            },
+            "s3Key": {
+                "S": "1ZdqQIgqe4RY/aI5GQ1QVCYdQ/ToS5RM5OMKXD/composite/media/hls/multivariant.m3u8"
+            }
+        }
+    ],
+    "Count": 1,
+    "ScannedCount": 5,
+    "LastEvaluatedKey": {
+        "pk": {
+            "S": "u#74d8d488-8091-70ab-0744-729b2240baf5#programs"
+        },
+        "sk": {
+            "S": "p#4cd723ad-da54-4848-8050-5c2fdc0fe648"
+        }
+    }
+}

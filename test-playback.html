@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IVS Recording Playback Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+    <h1>IVS Recording Playback Test</h1>
+    <video id="video" controls style="width: 100%; max-width: 800px;"></video>
+    
+    <script>
+        const video = document.getElementById('video');
+        const videoSrc = 'https://d2kyyx47f0bavc.cloudfront.net/Y0RCqjLWBmzu/BIaAta7gzmjC/Uaxw8QzyMCS0/composite/media/hls/multivariant.m3u8';
+        
+        if (Hls.isSupported()) {
+            const hls = new Hls();
+            hls.loadSource(videoSrc);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                console.log('✅ Video loaded successfully');
+            });
+            hls.on(Hls.Events.ERROR, function(event, data) {
+                console.error('❌ HLS Error:', data);
+            });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = videoSrc;
+        }
+    </script>
+    
+    <h2>Test URL:</h2>
+    <p><a href="https://d2kyyx47f0bavc.cloudfront.net/Y0RCqjLWBmzu/BIaAta7gzmjC/Uaxw8QzyMCS0/composite/media/hls/multivariant.m3u8" target="_blank">
+        https://d2kyyx47f0bavc.cloudfront.net/Y0RCqjLWBmzu/BIaAta7gzmjC/Uaxw8QzyMCS0/composite/media/hls/multivariant.m3u8
+    </a></p>
+    
+    <h2>Program Entry in DynamoDB:</h2>
+    <pre>
+program_url: "https://d2kyyx47f0bavc.cloudfront.net/1ZdqQIgqe4RY/aI5GQ1QVCYdQ/ToS5RM5OMKXD/composite/media/hls/multivariant.m3u8"
+    </pre>
+</body>
+</html>

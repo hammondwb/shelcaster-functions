@@ -1,4 +1,4 @@
-import { DynamoDBClient, QueryCommand, BatchWriteItemCommand } from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient, QueryCommand, BatchWriteItemCommand, GetItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 
 const dynamoDBClient = new DynamoDBClient({ region: "us-east-1" });
@@ -65,9 +65,17 @@ export const handler = async (event) => {
       }
     }
 
-    // Step 3: Create new programs with updated order
-    if (programs.length > 0) {
-      const putRequests = programs.map((program, index) => ({
+    // Step 3: Use the program data sent from frontend
+    console.log('Received programs:', programs);
+    const fullPrograms = programs.map((program, index) => ({
+      ...program,
+      order: index
+    }));
+    console.log('Total programs to save:', fullPrograms.length);
+
+    // Step 4: Create new programs with updated order and full data
+    if (fullPrograms.length > 0) {
+      const putRequests = fullPrograms.map((program, index) => ({
         PutRequest: {
           Item: marshall({
             pk: `tracklist#${tracklistId}`,
@@ -76,11 +84,11 @@ export const handler = async (event) => {
             tracklistId,
             programId: program.programId,
             order: index,
-            title: program.title,
+            title: program.title || program.name || '',
             duration: program.duration || 0,
-            program_url: program.program_url || '',
-            program_image: program.program_image || '',
-          }),
+            program_url: program.program_url || program.mediaUrl || program.media_url || '',
+            program_image: program.program_image || program.thumbnail || program.image || '',
+          }, { removeUndefinedValues: true }),
         },
       }));
 
@@ -100,7 +108,7 @@ export const handler = async (event) => {
       headers,
       body: JSON.stringify({ 
         message: "Tracklist programs updated successfully",
-        programCount: programs.length
+        programCount: fullPrograms.length
       }),
     };
   } catch (error) {
