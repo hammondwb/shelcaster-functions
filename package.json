@@ -18,7 +18,7 @@
     "uuid": "^9.0.1"
   },
   "dependencies": {
-    "@aws-sdk/client-ivs-realtime": "^3.985.0",
+    "@aws-sdk/client-ivs-realtime": "^3.989.0",
     "@aws-sdk/client-lambda": "^3.985.0",
     "archiver": "^7.0.1"
   }

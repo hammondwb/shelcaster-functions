@@ -1,0 +1,29 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "medialive:CreateChannel",
+        "medialive:CreateInput",
+        "medialive:StartChannel",
+        "medialive:StopChannel",
+        "medialive:DeleteChannel",
+        "medialive:DeleteInput",
+        "medialive:DescribeChannel",
+        "medialive:DescribeInput",
+        "medialive:ListChannels",
+        "medialive:ListInputs",
+        "medialive:BatchUpdateSchedule"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "iam:PassRole"
+      ],
+      "Resource": "arn:aws:iam::124355640062:role/MediaLiveAccessRole"
+    }
+  ]
+}

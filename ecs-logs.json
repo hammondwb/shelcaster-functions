@@ -1,0 +1,40 @@
+{
+    "events": [
+        {
+            "timestamp": 1770944059936,
+            "message": "Received command: {",
+            "ingestionTime": 1770944060931
+        },
+        {
+            "timestamp": 1770944059936,
+            "message": "  command: 'PLAY_MEDIA',",
+            "ingestionTime": 1770944060931
+        },
+        {
+            "timestamp": 1770944059936,
+            "message": "  sessionId: '8c423d9c-4d6b-40e1-9988-7a7a3acec235',",
+            "ingestionTime": 1770944060931
+        },
+        {
+            "timestamp": 1770944059936,
+            "message": "  programId: 'underground-expressions-legacy-promo-1751746582938',",
+            "ingestionTime": 1770944060931
+        },
+        {
+            "timestamp": 1770944059936,
+            "message": "  mediaUrl: 'https://d2kyyx47f0bavc.cloudfront.net/users/8418c498-1021-70d0-38c8-3f038ccbc024/programs/files/1751746434178-underground_expressions.mp4',",
+            "ingestionTime": 1770944060931
+        },
+        {
+            "timestamp": 1770944059936,
+            "message": "  volume: 80",
+            "ingestionTime": 1770944060931
+        },
+        {
+            "timestamp": 1770944059936,
+            "message": "}",
+            "ingestionTime": 1770944060931
+        },
+        {
+            "timestamp": 1770944059936,
+            "message": 

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Program Controller Browser Client</title>
+  <script src="https://web-broadcast.live-video.net/1.7.0/amazon-ivs-web-broadcast.js"></script>
+</head>
+<body>
+  <h1>Program Controller</h1>
+  <div id="status">Initializing...</div>
+  <audio id="audioPlayer" style="display:none"></audio>
+  <canvas id="visualizer" width="1280" height="720" style="display:none"></canvas>
+
+  <script>
+    const { Stage, LocalStageStream, StageEvents, ConnectionState } = IVSBroadcastClient;
+
+    let stage = null;
+    let audioElement = document.getElementById('audioPlayer');
+    let canvas = document.getElementById('visualizer');
+    let ctx = canvas.getContext('2d');
+    let audioContext = null;
+    let mediaSource = null;
+    let analyser = null;
+    let gainNode = null;
+    let destination = null;
+    let currentStageStream = null;
+    let videoStream = null;
+    let animationId = null;
+
+    // Draw audio visualization on canvas
+    function drawVisualization() {
+      const bufferLength = analyser?.frequencyBinCount || 128;
+      const dataArray = new Uint8Array(bufferLength);
+      
+      function draw() {
+        animationId = requestAnimationFrame(draw);
+        
+        if (analyser) {
+          analyser.getByteFrequencyData(dataArray);
+        }
+        
+        // Clear canvas with dark background
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw text
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '48px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Track Audio Playing', canvas.width / 2, canvas.height / 2 - 100);
+        
+        // Draw frequency bars
+        const barWidth = (canvas.width / bufferLength) * 2.5;
+        let x = 0;
+        
+        for (let i = 0; i < bufferLength; i++) {
+          const barHeight = (dataArray[i] / 255) * (canvas.height / 3);
+          
+          ctx.fillStyle = `rgb(${barHeight + 100}, 50, 200)`;
+          ctx.fillRect(x, canvas.height / 2, barWidth, barHeight);
+          ctx.fillRect(x, canvas.height / 2, barWidth, -barHeight);
+          
+          x += barWidth + 1;
+        }
+      }
+      
+      draw();
+    }
+
+    // Expose functions to Node.js
+    window.programController = {
+      async joinStage(participantToken) {
+        console.log('[JOIN] Starting joinStage function');
+        document.getElementById('status').textContent = 'Joining stage...';
+        
+        try {
+          if (!participantToken || typeof participantToken !== 'string') {
+            throw new Error('Invalid participant token');
+          }
+          
+          // Create AudioContext
+          audioContext = new AudioContext({ sampleRate: 48000 });
+          
+          // Create analyser for visualization
+          analyser = audioContext.createAnalyser();
+          analyser.fftSize = 256;
+          
+          // Create gain node
+          gainNode = audioContext.createGain();
+          gainNode.gain.value = 0.8;
+          
+          // Create test oscillator
+          const testOsc = audioContext.createOscillator();
+          testOsc.frequency.value = 440;
+          testOsc.connect(gainNode);
+          testOsc.start();
+          
+          // Connect audio pipeline
+          destination = audioContext.createMediaStreamDestination();
+          gainNode.connect(analyser);
+          analyser.connect(destination);
+          
+          // Start canvas visualization
+          drawVisualization();
+          
+          // Capture canvas as video stream
+          videoStream = canvas.captureStream(30); // 30 FPS
+          const videoTrack = videoStream.getVideoTracks()[0];
+          const audioTrack = destination.stream.getAudioTracks()[0];
+          
+          console.log('[JOIN] Video track:', videoTrack.id);
+          console.log('[JOIN] Audio track:', audioTrack.id);
+          
+          // Create stage streams
+          const videoStageStream = new LocalStageStream(videoTrack);
+          const audioStageStream = new LocalStageStream(audioTrack);
+          
+          // Create stage
+          stage = new Stage(participantToken, {
+            stageStreamsToPublish() {
+              return [videoStageStream, audioStageStream];
+            }
+          });
+
+          stage.on(StageEvents.STAGE_CONNECTION_STATE_CHANGED, (state) => {
+            console.log('[JOIN] Connection state:', state);
+            document.getElementById('status').textContent = `Connection: ${state}`;
+          });
+
+          await stage.join();
+          console.log('[JOIN] ✓ Joined stage with video + audio');
+          document.getElementById('status').textContent = 'Connected with video';
+          return { success: true };
+        } catch (error) {
+          console.error('[JOIN] ERROR:', error);
+          document.getElementById('status').textContent = `Error: ${error.message}`;
+          return { success: false, error: error.message };
+        }
+      },
+
+      },
+
+      async playMedia(mediaUrl, volume = 1.0) {
+        console.log('[PLAY] Starting playMedia:', mediaUrl, 'at volume:', volume);
+        document.getElementById('status').textContent = `Playing: ${mediaUrl}`;
+        
+        try {
+          // Create media source only once
+          if (!mediaSource) {
+            console.log('[PLAY] Creating media element source (first time)');
+            mediaSource = audioContext.createMediaElementSource(audioElement);
+            mediaSource.connect(gainNode);
+            console.log('[PLAY] Media source connected to gain node -> destination');
+          }
+
+          // Load and play audio
+          console.log('[PLAY] Setting audio element source');
+          audioElement.src = mediaUrl;
+          audioElement.volume = 1.0;
+          audioElement.crossOrigin = 'anonymous';
+          audioElement.loop = false;
+          
+          console.log('[PLAY] Calling audioElement.play()');
+          await audioElement.play();
+          console.log('[PLAY] Audio element playing');
+          
+          // Set volume
+          gainNode.gain.value = volume;
+          console.log('[PLAY] Volume set to:', volume);
+          
+          console.log('[PLAY] ✓ Media playing at volume:', volume);
+          return { success: true };
+        } catch (error) {
+          console.error('[PLAY] ERROR:', error.message);
+          console.error('[PLAY] Stack:', error.stack);
+          document.getElementById('status').textContent = `Play error: ${error.message}`;
+          return { success: false, error: error.message };
+        }
+      },
+
+      async pauseMedia() {
+        console.log('Pausing media');
+        audioElement.pause();
+        return { success: true };
+      },
+
+      async stopMedia() {
+        console.log('Stopping media');
+        audioElement.pause();
+        audioElement.currentTime = 0;
+        
+        if (currentAudio) {
+          currentAudio.getTracks().forEach(track => track.stop());
+          currentAudio = null;
+        }
+        
+        return { success: true };
+      },
+
+      async adjustVolume(volume) {
+        console.log('Adjusting volume:', volume);
+        if (gainNode) {
+          gainNode.gain.value = volume;
+        }
+        return { success: true };
+      },
+
+      async leaveStage() {
+        console.log('Leaving stage');
+        if (stage) {
+          await stage.leave();
+          stage = null;
+        }
+        return { success: true };
+      }
+    };
+
+    console.log('Program Controller browser client ready');
+    document.getElementById('status').textContent = 'Ready';
+  </script>
+</body>
+</html>

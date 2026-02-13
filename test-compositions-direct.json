@@ -1,0 +1,6 @@
+{
+  "pathParameters": {
+    "sessionId": "test-session-123"
+  },
+  "body": "{\"stageArn\":\"arn:aws:ivs:us-east-1:124355640062:stage/rzFotsZwPwCW\",\"participants\":[{\"participantId\":\"yYYgTtAVqjkQ\",\"userId\":\"8418c498-1021-70d0-38c8-3f038ccbc024\",\"isHost\":true}]}"
+}

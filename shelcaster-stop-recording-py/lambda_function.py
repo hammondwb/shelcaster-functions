@@ -1,0 +1,103 @@
+import boto3
+import json
+from datetime import datetime
+
+medialive = boto3.client('medialive', region_name='us-east-1')
+dynamodb = boto3.client('dynamodb', region_name='us-east-1')
+
+TABLE_NAME = 'shelcaster-app'
+
+def lambda_handler(event, context):
+    print('Event:', json.dumps(event))
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': '*'
+    }
+    
+    try:
+        session_id = event.get('pathParameters', {}).get('sessionId')
+        
+        if not session_id:
+            return {
+                'statusCode': 400,
+                'headers': headers,
+                'body': json.dumps({'error': 'Missing sessionId'})
+            }
+        
+        # Get session from DynamoDB
+        response = dynamodb.get_item(
+            TableName=TABLE_NAME,
+            Key={
+                'pk': {'S': f'session#{session_id}'},
+                'sk': {'S': 'info'}
+            }
+        )
+        
+        if 'Item' not in response:
+            return {
+                'statusCode': 404,
+                'headers': headers,
+                'body': json.dumps({'error': 'Session not found'})
+            }
+        
+        session = response['Item']
+        
+        # Get MediaLive channel ID and action name
+        channel_id = None
+        action_name = None
+        
+        if 'mediaLive' in session and 'M' in session['mediaLive']:
+            ml_data = session['mediaLive']['M']
+            if 'channelId' in ml_data and 'S' in ml_data['channelId']:
+                channel_id = ml_data['channelId']['S']
+        
+        if 'recording' in session and 'M' in session['recording']:
+            rec_data = session['recording']['M']
+            if 'actionName' in rec_data and 'S' in rec_data['actionName']:
+                action_name = rec_data['actionName']['S']
+        
+        if not channel_id:
+            return {
+                'statusCode': 400,
+                'headers': headers,
+                'body': json.dumps({'error': 'MediaLive channel not found'})
+            }
+        
+        # Delete schedule action to stop recording
+        if action_name:
+            medialive.batch_update_schedule(
+                ChannelId=channel_id,
+                Deletes={
+                    'ActionNames': [action_name]
+                }
+            )
+        
+        # Update DynamoDB
+        dynamodb.update_item(
+            TableName=TABLE_NAME,
+            Key={
+                'pk': {'S': f'session#{session_id}'},
+                'sk': {'S': 'info'}
+            },
+            UpdateExpression='SET recording.isRecording = :rec, updatedAt = :now',
+            ExpressionAttributeValues={
+                ':rec': {'BOOL': False},
+                ':now': {'S': datetime.utcnow().isoformat()}
+            }
+        )
+        
+        return {
+            'statusCode': 200,
+            'headers': headers,
+            'body': json.dumps({'message': 'Recording stopped'})
+        }
+        
+    except Exception as error:
+        print(f'Error stopping recording: {str(error)}')
+        return {
+            'statusCode': 500,
+            'headers': headers,
+            'body': json.dumps({'error': str(error)})
+        }

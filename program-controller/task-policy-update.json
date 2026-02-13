@@ -1,0 +1,60 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "S3Access",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:ListBucket",
+        "s3:DeleteObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::shelcaster-media-manager",
+        "arn:aws:s3:::shelcaster-media-manager/*"
+      ]
+    },
+    {
+      "Sid": "DynamoDBAccess",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:Query"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:124355640062:table/shelcaster-app",
+        "arn:aws:dynamodb:us-east-1:124355640062:table/shelcaster-app/index/*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:us-east-1:124355640062:log-group:/ecs/shelcaster-*:*"
+    },
+    {
+      "Sid": "IVSAccess",
+      "Effect": "Allow",
+      "Action": [
+        "ivs:CreateParticipantToken"
+      ],
+      "Resource": "arn:aws:ivs:us-east-1:124355640062:stage/*"
+    },
+    {
+      "Sid": "SQSAccess",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes"
+      ],
+      "Resource": "arn:aws:sqs:us-east-1:124355640062:shelcaster-program-commands"
+    }
+  ]
+}

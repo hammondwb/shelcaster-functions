@@ -1,1 +1,15 @@
-{"body":"{\"showId\":\"aef92dc2-a950-4e9e-b578-4507695dd857\"}","pathParameters":{},"requestContext":{"authorizer":{"jwt":{"claims":{"sub":"8418c498-1021-70d0-38c8-3f038ccbc024"}}}}}
+{
+  "version": "2.0",
+  "routeKey": "POST /sessions/{sessionId}/compositions",
+  "rawPath": "/sessions/test-123/compositions",
+  "requestContext": {
+    "http": {
+      "method": "POST",
+      "path": "/sessions/test-123/compositions"
+    }
+  },
+  "pathParameters": {
+    "sessionId": "test-123"
+  },
+  "body": "{\"stageArn\":\"arn:aws:ivs:us-east-1:124355640062:stage/rzFotsZwPwCW\",\"participants\":[{\"participantId\":\"test123\",\"userId\":\"user123\",\"isHost\":true}]}"
+}

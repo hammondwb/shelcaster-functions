@@ -1,34 +1,20 @@
 import { DynamoDBClient, GetItemCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
-import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
+import { MediaLiveClient, BatchUpdateScheduleCommand } from "@aws-sdk/client-medialive";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { randomUUID } from "crypto";
 
 const dynamoDBClient = new DynamoDBClient({ region: "us-east-1" });
-const sqsClient = new SQSClient({ region: "us-east-1" });
-
-const PROGRAM_COMMANDS_QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/124355640062/shelcaster-program-commands";
-
-// Feature flag for IVS composition updates (0 = stub, 1 = apply)
-const APPLY_IVS = parseInt(process.env.APPLY_IVS || '0');
+const mediaLiveClient = new MediaLiveClient({ region: "us-east-1" });
 
 /**
  * Parse sourceId into structured format
- * @param {string} sourceId - Format: "host" | "caller:{participantId}" | "track:{trackId}"
- * @returns {{type: 'host'|'caller'|'track', id?: string}}
+ * @param {string} sourceId - Format: "participants" | "track:{trackId}"
+ * @returns {{type: 'participants'|'track', id?: string}}
  */
 function parseSourceId(sourceId) {
-  if (sourceId === "host") {
-    return { type: 'host' };
+  if (sourceId === "participants") {
+    return { type: 'participants' };
   }
-  
-  if (sourceId.startsWith("caller:")) {
-    const id = sourceId.substring(7); // Remove "caller:" prefix
-    if (!id) {
-      throw new Error("Invalid caller sourceId: missing participantId");
-    }
-    return { type: 'caller', id };
-  }
-  
+
   if (sourceId.startsWith("track:")) {
     const id = sourceId.substring(6); // Remove "track:" prefix
     if (!id) {
@@ -36,43 +22,54 @@ function parseSourceId(sourceId) {
     }
     return { type: 'track', id };
   }
-  
+
   throw new Error(`Unknown sourceId format: ${sourceId}`);
 }
 
 /**
- * Send SWITCH_SOURCE command to PROGRAM controller via SQS
+ * Map sourceId to MediaLive InputAttachmentNameReference
+ * MVP: Only two inputs — "participants" (IVS Composition tiled grid) and "tracklist" (S3 HLS)
+ * @param {string} sourceId - Format: "participants" | "track:{trackId}"
+ * @returns {string} InputAttachmentName to switch to
  */
-async function sendProgramCommand(sessionId, sourceId) {
-  const messageId = randomUUID();
-  const message = {
-    sessionId,
-    command: "SWITCH_SOURCE",
-    sourceId,
-    timestamp: new Date().toISOString(),
-    messageId,
-  };
+function mapSourceToInputAttachment(sourceId) {
+  if (sourceId === 'participants') {
+    return 'participants';
+  }
+  if (sourceId.startsWith('track:')) {
+    return 'tracklist';
+  }
+  throw new Error(`Cannot map sourceId to input attachment: ${sourceId}`);
+}
 
-  const params = {
-    QueueUrl: PROGRAM_COMMANDS_QUEUE_URL,
-    MessageBody: JSON.stringify(message),
-    MessageAttributes: {
-      sessionId: {
-        DataType: 'String',
-        StringValue: sessionId,
-      },
-      command: {
-        DataType: 'String',
-        StringValue: 'SWITCH_SOURCE',
-      },
-    },
-  };
+/**
+ * Switch MediaLive channel input using BatchUpdateSchedule
+ */
+async function switchMediaLiveInput(channelId, sourceId) {
+  const inputAttachmentName = mapSourceToInputAttachment(sourceId);
 
-  console.log('Sending PROGRAM command to SQS:', JSON.stringify(message, null, 2));
+  const command = new BatchUpdateScheduleCommand({
+    ChannelId: channelId,
+    Creates: {
+      ScheduleActions: [{
+        ActionName: `switch-${inputAttachmentName}-${Date.now()}`,
+        ScheduleActionSettings: {
+          InputSwitchSettings: {
+            InputAttachmentNameReference: inputAttachmentName
+          }
+        },
+        ScheduleActionStartSettings: {
+          ImmediateModeScheduleActionStartSettings: {}
+        }
+      }]
+    }
+  });
 
-  const result = await sqsClient.send(new SendMessageCommand(params));
+  console.log('Switching MediaLive input:', { channelId, sourceId, inputAttachmentName });
 
-  console.log('SQS message sent:', result.MessageId);
+  const result = await mediaLiveClient.send(command);
+
+  console.log('MediaLive schedule updated:', JSON.stringify(result, null, 2));
 
   return result;
 }
@@ -208,8 +205,17 @@ export const handler = async (event) => {
       const updateResult = await dynamoDBClient.send(new UpdateItemCommand(updateParams));
       const updatedSession = unmarshall(updateResult.Attributes);
 
-      // Send SWITCH_SOURCE command to PROGRAM controller via SQS
-      await sendProgramCommand(sessionId, sourceId);
+      // Switch MediaLive input via BatchUpdateSchedule
+      const channelId = session.mediaLive?.channelId;
+      if (!channelId) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'MediaLive channel not found on session — is streaming started?' }),
+        };
+      }
+
+      await switchMediaLiveInput(channelId, sourceId);
 
       return {
         statusCode: 200,

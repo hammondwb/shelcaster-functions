@@ -1,0 +1,340 @@
+{
+    "events": [
+        {
+            "timestamp": 1770758712996,
+            "message": "Starting PROGRAM controller for session: 2555d855-ceaa-49ee-a95f-12cf1ce709cc",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758712997,
+            "message": "[INIT] Step 1: Starting initialization...",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758712997,
+            "message": "[INIT] Step 2: Fetching session from DynamoDB...",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "[INIT] Step 3: Session fetched: {",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  \"createdAt\": \"2026-02-10T21:24:30.999Z\",",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  \"entityType\": \"liveSession\",",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  \"episodeId\": null,",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  \"hostUserId\": \"8418c498-1021-70d0-38c8-3f038ccbc024\",",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  \"ivs\": {",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"channelArn\": null,",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"compositionArn\": \"arn:aws:ivs:us-east-1:124355640062:composition/7MwmopDJgP0w\",",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"programChannelArn\": \"arn:aws:ivs:us-east-1:124355640062:channel/2o9ARM49hGJc\",",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"programControllerTaskArn\": \"arn:aws:ecs:us-east-1:124355640062:task/shelcaster-vp-cluster/d9d4578c305844f8a7f68682959a69b3\",",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"programParticipantId\": \"program-virtual-2555d855-ceaa-49ee-a95f-12cf1ce709cc\",",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"programPlaybackUrl\": \"https://ac3a1332d866.us-east-1.playback.live-video.net/api/video/v1/us-east-1.124355640062.channel.2o9ARM49hGJc.m3u8\",",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"programStageArn\": \"arn:aws:ivs:us-east-1:124355640062:stage/KIA1SO3VIrco\",",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"rawStageArn\": \"arn:aws:ivs:us-east-1:124355640062:stage/S6hnNIIt9ppn\",",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"stageArn\": null",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  },",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  \"participants\": {",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"host\": {",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "      \"participantId\": null",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    },",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"callers\": []",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  },",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  \"pk\": \"session#2555d855-ceaa-49ee-a95f-12cf1ce709cc\",",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  \"programState\": {",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"audioLevels\": {",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "      \"host\": 1",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    },",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"overlayImageS3Key\": null,",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"activeVideoSource\": \"host\"",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  },",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  \"recording\": {",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"isRecording\": true,",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"s3Prefix\": \"sessions/2555d855-ceaa-49ee-a95f-12cf1ce709cc/program/\"",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  },",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  \"sessionId\": \"2555d855-ceaa-49ee-a95f-12cf1ce709cc\",",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  \"showId\": \"892d0f17-b070-4920-ab28-63702b31dc7d\",",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  \"status\": \"ACTIVE\",",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  \"streaming\": {",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"isLive\": true,",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"startedAt\": null",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  },",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  \"tracklist\": {",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"playlistId\": null,",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "    \"currentIndex\": 0",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  },",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  \"updatedAt\": \"2026-02-10T21:24:40.443Z\",",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "  \"sk\": \"info\"",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "}",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "[INIT] Step 4: RAW stage ARN confirmed: arn:aws:ivs:us-east-1:124355640062:stage/S6hnNIIt9ppn",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "[INIT] Step 5: Initializing browser...",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758713431,
+            "message": "Launching headless browser...",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758715108,
+            "message": "[BROWSER] Puppeteer launched",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758715687,
+            "message": "[BROWSER] New page created",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758715688,
+            "message": "[BROWSER] Loading HTML from: file:///app/browser-client.html",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758715987,
+            "message": "Browser: Program Controller browser client ready",
+            "ingestionTime": 1770758716153
+        },
+        {
+            "timestamp": 1770758716709,
+            "message": "[BROWSER] HTML loaded successfully",
+            "ingestionTime": 1770758721094
+        },
+        {
+            "timestamp": 1770758716709,
+            "message": "[BROWSER] Browser initialization complete",
+            "ingestionTime": 1770758721094
+        },
+        {
+            "timestamp": 1770758716709,
+            "message": "[INIT] Step 6: Browser initialized successfully",
+            "ingestionTime": 1770758721094
+        },
+        {
+            "timestamp": 1770758716709,
+            "message": "[INIT] Step 7: Creating participant token...",
+            "ingestionTime": 1770758721094
+        },
+        {
+            "timestamp": 1770758716709,
+            "message": "[TOKEN] Creating participant token for playlist...",
+            "ingestionTime": 1770758721094
+        },
+        {
+            "timestamp": 1770758716709,
+            "message": "[TOKEN] Stage ARN: arn:aws:ivs:us-east-1:124355640062:stage/S6hnNIIt9ppn",
+            "ingestionTime": 1770758721094
+        },
+        {
+            "timestamp": 1770758716709,
+            "message": "[TOKEN] Sending CreateParticipantTokenCommand...",
+            "ingestionTime": 1770758721094
+        },
+        {
+            "timestamp": 1770758716811,
+            "message": "[TOKEN] Response received",
+            "ingestionTime": 1770758721094
+        },
+        {
+            "timestamp": 1770758716811,
+            "message": "[TOKEN] Token length: 717",
+            "ingestionTime": 1770758721094
+        },
+        {
+            "timestamp": 1770758716812,
+            "message": 

@@ -1,107 +1,122 @@
-import { DynamoDBClient, PutItemCommand, BatchWriteItemCommand } from "@aws-sdk/client-dynamodb";
-import { marshall } from "@aws-sdk/util-dynamodb";
+/**
+ * shelcaster-create-tracklist
+ * POST /shows/{showId}/tracklist
+ * 
+ * Creates a tracklist for a show if it doesn't exist
+ */
+
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "crypto";
 
-const dynamoDBClient = new DynamoDBClient({ region: "us-east-1" });
+const client = new DynamoDBClient({ region: "us-east-1" });
+const docClient = DynamoDBDocumentClient.from(client);
 
 export const handler = async (event) => {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': '*',
-  };
+  console.log('Event:', JSON.stringify(event, null, 2));
+  
+  const showId = event.pathParameters?.showId;
+  
+  if (!showId) {
+    return {
+      statusCode: 400,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+        'Access-Control-Allow-Methods': 'POST,OPTIONS'
+      },
+      body: JSON.stringify({ error: 'showId is required' })
+    };
+  }
 
   try {
-    const body = JSON.parse(event.body);
-    const { 
-      name, 
-      description, 
-      producerId,
-      programs = []
-    } = body;
+    // Check if show exists
+    const showResult = await docClient.send(new GetCommand({
+      TableName: 'shelcaster-app',
+      Key: {
+        pk: `show#${showId}`,
+        sk: 'info'
+      }
+    }));
 
-    if (!name || !producerId) {
+    if (!showResult.Item) {
       return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ message: "Missing required fields: name, producerId" }),
+        statusCode: 404,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+          'Access-Control-Allow-Methods': 'POST,OPTIONS'
+        },
+        body: JSON.stringify({ error: 'Show not found' })
       };
     }
 
+    // Check if tracklist already exists
+    if (showResult.Item.tracklistId) {
+      return {
+        statusCode: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+          'Access-Control-Allow-Methods': 'POST,OPTIONS'
+        },
+        body: JSON.stringify({ 
+          tracklistId: showResult.Item.tracklistId,
+          message: 'Tracklist already exists'
+        })
+      };
+    }
+
+    // Create new tracklist
     const tracklistId = randomUUID();
     const now = new Date().toISOString();
 
-    // Calculate total duration
-    const totalDuration = programs.reduce((sum, p) => sum + (p.duration || 0), 0);
-
-    const tracklist = {
-      pk: `tracklist#${tracklistId}`,
-      sk: 'info',
-      entityType: 'tracklist',
-      GSI1PK: `producer#${producerId}`,
-      GSI1SK: `tracklist#${now}#${tracklistId}`,
-      tracklistId,
-      name,
-      description: description || '',
-      producerId,
-      totalDuration,
-      programCount: programs.length,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    // Create the tracklist item
-    const tracklistParams = {
-      TableName: "shelcaster-app",
-      Item: marshall(tracklist),
-    };
-
-    await dynamoDBClient.send(new PutItemCommand(tracklistParams));
-
-    // If there are programs, add them to the tracklist
-    if (programs.length > 0) {
-      const writeRequests = programs.map((program, index) => ({
-        PutRequest: {
-          Item: marshall({
-            pk: `tracklist#${tracklistId}`,
-            sk: `program#${String(index).padStart(5, '0')}#${program.programId}`,
-            entityType: 'tracklistProgram',
-            tracklistId,
-            programId: program.programId,
-            order: index,
-            title: program.title,
-            duration: program.duration || 0,
-            program_url: program.program_url || '',
-            program_image: program.program_image || '',
-          }),
-        },
-      }));
-
-      // Batch write in chunks of 25 (DynamoDB limit)
-      for (let i = 0; i < writeRequests.length; i += 25) {
-        const chunk = writeRequests.slice(i, i + 25);
-        const batchParams = {
-          RequestItems: {
-            "shelcaster-app": chunk,
-          },
-        };
-        await dynamoDBClient.send(new BatchWriteItemCommand(batchParams));
+    // Create tracklist item
+    await docClient.send(new PutCommand({
+      TableName: 'shelcaster-app',
+      Item: {
+        pk: `tracklist#${tracklistId}`,
+        sk: 'info',
+        tracklistId,
+        showId,
+        programs: [],
+        createdAt: now,
+        updatedAt: now
       }
-    }
+    }));
+
+    // Update show with tracklistId
+    await docClient.send(new PutCommand({
+      TableName: 'shelcaster-app',
+      Item: {
+        ...showResult.Item,
+        tracklistId,
+        updatedAt: now
+      }
+    }));
 
     return {
       statusCode: 201,
-      headers,
-      body: JSON.stringify({ tracklist }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+        'Access-Control-Allow-Methods': 'POST,OPTIONS'
+      },
+      body: JSON.stringify({ 
+        tracklistId,
+        message: 'Tracklist created successfully'
+      })
     };
   } catch (error) {
-    console.error("Error creating tracklist:", error);
+    console.error('Error:', error);
     return {
       statusCode: 500,
-      headers,
-      body: JSON.stringify({ message: "Internal server error", error: error.message }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+        'Access-Control-Allow-Methods': 'POST,OPTIONS'
+      },
+      body: JSON.stringify({ error: 'Internal server error' })
     };
   }
 };
-

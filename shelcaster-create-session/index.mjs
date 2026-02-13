@@ -141,8 +141,8 @@ export const handler = async (event) => {
     // Start PROGRAM controller ECS task
     console.log('Starting PROGRAM controller ECS task...');
     const runTaskParams = {
-      cluster: 'shelcaster-vp-cluster',
-      taskDefinition: 'shelcaster-program-controller',
+      cluster: 'shelcaster-cluster',
+      taskDefinition: 'shelcaster-program-controller:12',
       launchType: 'FARGATE',
       networkConfiguration: {
         awsvpcConfiguration: {
@@ -155,12 +155,7 @@ export const handler = async (event) => {
           {
             name: 'program-controller',
             environment: [
-              { name: 'SESSION_ID', value: sessionId },
-              { name: 'RAW_STAGE_ARN', value: rawStageArn },
-              { name: 'PROGRAM_STAGE_ARN', value: programStageArn },
-              { name: 'COMMAND_QUEUE_URL', value: 'https://sqs.us-east-1.amazonaws.com/124355640062/shelcaster-program-commands' },
-              { name: 'DDB_TABLE', value: 'shelcaster-app' },
-              { name: 'REGION', value: 'us-east-1' }
+              { name: 'SESSION_ID', value: sessionId }
             ]
           }
         ]
