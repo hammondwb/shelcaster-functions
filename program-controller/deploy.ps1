@@ -20,7 +20,8 @@ docker tag ${ECR_REPO}:${IMAGE_TAG} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amaz
 Write-Host "Pushing to ECR..." -ForegroundColor Cyan
 docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${IMAGE_TAG}
 
-Write-Host "`n✓ Deployment complete!" -ForegroundColor Green
+Write-Host ""
+Write-Host "Deployment complete!" -ForegroundColor Green
 Write-Host "Next: Stop existing ECS task to force new deployment" -ForegroundColor Yellow
 Write-Host "Run: aws ecs list-tasks --cluster shelcaster-cluster --region us-east-1" -ForegroundColor Gray
-Write-Host "Then: aws ecs stop-task --cluster shelcaster-cluster --task <TASK_ARN> --region us-east-1" -ForegroundColor Gray
+Write-Host "Then: aws ecs stop-task --cluster shelcaster-cluster --task TASK_ARN --region us-east-1" -ForegroundColor Gray

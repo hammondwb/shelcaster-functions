@@ -38,6 +38,8 @@ export const handler = async (event) => {
     const session = unmarshall(sessionResult.Item);
     
     // Start composition with S3 recording
+    // Use grid layout with featuredParticipantAttribute to enable source switching
+    // When a participant has attribute "featured"="true", they will be shown full-screen
     const composition = await ivsClient.send(new StartCompositionCommand({
       stageArn: session.ivs.rawStageArn,
       destinations: [
@@ -56,6 +58,9 @@ export const handler = async (event) => {
       ],
       layout: {
         grid: {
+          featuredParticipantAttribute: 'featured',
+          omitStoppedVideo: false,
+          videoFillMode: 'COVER',
           gridGap: 2
         }
       }

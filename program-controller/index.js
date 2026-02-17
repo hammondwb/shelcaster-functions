@@ -68,7 +68,7 @@ async function getSession(sessionId) {
 async function createPlaylistToken(stageArn) {
   console.log('[TOKEN] Creating participant token for playlist...');
   console.log('[TOKEN] Stage ARN:', stageArn);
-  
+
   try {
     console.log('[TOKEN] Sending CreateParticipantTokenCommand...');
     const response = await ivsClient.send(new CreateParticipantTokenCommand({
@@ -76,7 +76,8 @@ async function createPlaylistToken(stageArn) {
       userId: 'playlist-virtual-participant',
       attributes: {
         type: 'playlist',
-        role: 'publisher'
+        role: 'publisher',
+        featured: 'true'  // Mark as featured so it appears full-screen in composition
       },
       capabilities: ['PUBLISH'],
       duration: 3600 // 1 hour
