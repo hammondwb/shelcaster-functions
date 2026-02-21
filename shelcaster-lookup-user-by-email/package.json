@@ -1,0 +1,8 @@
+{
+  "name": "shelcaster-lookup-user-by-email",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.0.0"
+  }
+}

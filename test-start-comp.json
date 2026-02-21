@@ -1,0 +1,10 @@
+{
+  "pathParameters": {
+    "sessionId": "4f401d68-74b4-43aa-871e-4662909096b4"
+  },
+  "requestContext": {
+    "http": {
+      "method": "POST"
+    }
+  }
+}

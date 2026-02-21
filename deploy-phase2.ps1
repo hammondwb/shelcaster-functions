@@ -1,39 +1,42 @@
-# Deploy Phase 2: MediaLive Dynamic Channel
+# Deploy Phase 2: Session Integration with Persistent Channels
+# This script deploys both modified Lambda functions for Phase 2
 
-Write-Host "Deploying Phase 2: MediaLive Dynamic Channel" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Phase 2 Deployment: Session Integration" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
 
-cd shelcaster-create-medialive-dynamic
-npm install
+# Deploy create-session Lambda
+Write-Host "Step 1/2: Deploying shelcaster-create-session..." -ForegroundColor Yellow
+.\deploy-create-session-phase2.ps1
 
-if (Test-Path function.zip) {
-    Remove-Item function.zip
-}
+Write-Host ""
+Write-Host "----------------------------------------" -ForegroundColor Gray
+Write-Host ""
 
-Compress-Archive -Path * -DestinationPath function.zip -Force
+# Deploy end-session Lambda
+Write-Host "Step 2/2: Deploying shelcaster-end-session..." -ForegroundColor Yellow
+.\deploy-end-session-phase2.ps1
 
-aws lambda update-function-code `
-  --function-name shelcaster-create-medialive-dynamic `
-  --zip-file fileb://function.zip `
-  --profile shelcaster-admin `
-  --region us-east-1
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Function doesn't exist, creating..." -ForegroundColor Yellow
-    
-    aws lambda create-function `
-      --function-name shelcaster-create-medialive-dynamic `
-      --runtime nodejs20.x `
-      --role arn:aws:iam::124355640062:role/lambda-dynamodb-role `
-      --handler index.handler `
-      --zip-file fileb://function.zip `
-      --timeout 120 `
-      --memory-size 512 `
-      --environment "Variables={MEDIALIVE_ROLE_ARN=arn:aws:iam::124355640062:role/MediaLiveAccessRole}" `
-      --profile shelcaster-admin `
-      --region us-east-1
-}
-
-Remove-Item function.zip
-cd ..
-
-Write-Host "`n✅ Phase 2 deployment complete!" -ForegroundColor Green
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "Phase 2 Deployment Complete!" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Next Steps:" -ForegroundColor Cyan
+Write-Host "1. Review PHASE2-TESTING-GUIDE.md for testing procedures" -ForegroundColor White
+Write-Host "2. Ensure you have a test channel assigned to a host (from Phase 1)" -ForegroundColor White
+Write-Host "3. Run Test 1: Create session with assigned channel" -ForegroundColor White
+Write-Host "4. Run Test 2: End session and verify channel preservation" -ForegroundColor White
+Write-Host "5. Run Test 3: Create second session to verify channel reuse" -ForegroundColor White
+Write-Host ""
+Write-Host "Key Changes:" -ForegroundColor Cyan
+Write-Host "  - Sessions now use persistent channels with static playback URLs" -ForegroundColor Green
+Write-Host "  - Channels are preserved after broadcast ends" -ForegroundColor Green
+Write-Host "  - Relay channels are temporary and deleted after session" -ForegroundColor Green
+Write-Host "  - Channel statistics are tracked" -ForegroundColor Green
+Write-Host ""
+Write-Host "Documentation:" -ForegroundColor Cyan
+Write-Host "  - PHASE2-TESTING-GUIDE.md - Comprehensive testing procedures" -ForegroundColor White
+Write-Host "  - PERSISTENT-CHANNELS-PHASE2-COMPLETE.md - Phase 2 summary" -ForegroundColor White
+Write-Host ""

@@ -1,0 +1,10 @@
+{
+  "queryStringParameters": {
+    "email": "hammond@sheldonmedia.com"
+  },
+  "requestContext": {
+    "http": {
+      "method": "GET"
+    }
+  }
+}

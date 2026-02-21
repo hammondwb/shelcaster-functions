@@ -1,0 +1,1 @@
+{"statusCode":200,"headers":{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"Content-Type,Authorization","Access-Control-Allow-Methods":"POST,OPTIONS"},"body":"{\"compositionArn\":\"arn:aws:ivs:us-east-1:124355640062:composition/iASNlxC9oOCU\",\"message\":\"Composition started\"}"}

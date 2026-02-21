@@ -1,4 +1,4 @@
-import { DynamoDBClient, PutItemCommand, GetItemCommand } from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient, PutItemCommand, GetItemCommand, UpdateItemCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { IVSRealTimeClient, CreateStageCommand, CreateParticipantTokenCommand } from "@aws-sdk/client-ivs-realtime";
 import { ECSClient, RunTaskCommand } from "@aws-sdk/client-ecs";
@@ -90,6 +90,108 @@ export const handler = async (event) => {
     const sessionId = randomUUID();
     const now = new Date().toISOString();
 
+    // Look up host's persistent channel
+    console.log('Looking up persistent channel for host:', hostUserId);
+    const getChannelParams = {
+      TableName: "shelcaster-app",
+      Key: marshall({
+        pk: `host#${hostUserId}`,
+        sk: 'channel#assignment',
+      }),
+    };
+
+    const channelResult = await dynamoDBClient.send(new GetItemCommand(getChannelParams));
+    
+    if (!channelResult.Item) {
+      console.error('No channel assigned to host:', hostUserId);
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ 
+          message: "No channel assigned to your account. Please contact support.",
+          hostUserId 
+        }),
+      };
+    }
+
+    const channelAssignment = unmarshall(channelResult.Item);
+    const persistentChannelId = channelAssignment.channelId;
+    console.log('Found persistent channel:', persistentChannelId);
+
+    // Get full channel details to check state
+    const getChannelInfoParams = {
+      TableName: "shelcaster-app",
+      Key: marshall({
+        pk: `channel#${persistentChannelId}`,
+        sk: 'info',
+      }),
+    };
+
+    const channelInfoResult = await dynamoDBClient.send(new GetItemCommand(getChannelInfoParams));
+    
+    if (!channelInfoResult.Item) {
+      console.error('Channel record not found:', persistentChannelId);
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ 
+          message: "Channel configuration error. Please contact support.",
+          channelId: persistentChannelId
+        }),
+      };
+    }
+
+    const persistentChannel = unmarshall(channelInfoResult.Item);
+    console.log('Persistent channel state:', persistentChannel.state);
+
+    // Validate channel is available
+    if (persistentChannel.state === 'LIVE') {
+      console.error('Channel already in use:', persistentChannelId);
+      return {
+        statusCode: 409,
+        headers,
+        body: JSON.stringify({ 
+          message: "Channel is currently in use. Please try again later.",
+          channelId: persistentChannelId,
+          currentSessionId: persistentChannel.currentSessionId
+        }),
+      };
+    }
+
+    if (persistentChannel.state === 'OFFLINE') {
+      console.error('Channel is offline:', persistentChannelId);
+      return {
+        statusCode: 503,
+        headers,
+        body: JSON.stringify({ 
+          message: "Channel is temporarily unavailable. Please contact support.",
+          channelId: persistentChannelId
+        }),
+      };
+    }
+
+    // Update channel state to LIVE
+    console.log('Updating channel state to LIVE');
+    const updateChannelParams = {
+      TableName: "shelcaster-app",
+      Key: marshall({
+        pk: `channel#${persistentChannelId}`,
+        sk: 'info',
+      }),
+      UpdateExpression: 'SET #state = :state, currentSessionId = :sessionId, updatedAt = :now',
+      ExpressionAttributeNames: {
+        '#state': 'state'
+      },
+      ExpressionAttributeValues: marshall({
+        ':state': 'LIVE',
+        ':sessionId': sessionId,
+        ':now': now
+      })
+    };
+
+    await dynamoDBClient.send(new UpdateItemCommand(updateChannelParams));
+    console.log('Channel state updated to LIVE');
+
     // Create RAW stage (where host + callers publish)
     console.log('Creating RAW stage...');
     const rawStageParams = {
@@ -124,19 +226,19 @@ export const handler = async (event) => {
     const programStageArn = programStageResponse.stage.arn;
     console.log('PROGRAM stage created:', programStageArn);
 
-    // Create PROGRAM channel (what viewers watch)
-    console.log('Creating PROGRAM channel...');
+    // Create RELAY channel (temporary channel for composition output)
+    console.log('Creating RELAY channel for composition...');
     const { ivsClient: ivsChannelClient, CreateChannelCommand: CreateChannelCmd } = await getIVSClient();
-    const channelResponse = await ivsChannelClient.send(new CreateChannelCmd({
-      name: `shelcaster-program-${sessionId}`,
+    const relayChannelResponse = await ivsChannelClient.send(new CreateChannelCmd({
+      name: `shelcaster-relay-${sessionId}`,
       type: 'STANDARD',
       latencyMode: 'LOW',
     }));
-    const programChannelArn = channelResponse.channel.arn;
-    const programPlaybackUrl = channelResponse.channel.playbackUrl;
-    const programIngestEndpoint = channelResponse.channel.ingestEndpoint;
-    console.log('PROGRAM channel created:', programChannelArn);
-    console.log('PROGRAM playback URL:', programPlaybackUrl);
+    const relayChannelArn = relayChannelResponse.channel.arn;
+    const relayPlaybackUrl = relayChannelResponse.channel.playbackUrl;
+    const relayIngestEndpoint = relayChannelResponse.channel.ingestEndpoint;
+    console.log('RELAY channel created:', relayChannelArn);
+    console.log('RELAY playback URL:', relayPlaybackUrl);
 
     // Start PROGRAM controller ECS task
     console.log('Starting PROGRAM controller ECS task...');
@@ -181,15 +283,22 @@ export const handler = async (event) => {
       showId,
       episodeId: episodeId || null,
       ivs: {
+        // Persistent channel (what viewers watch - static playback URL)
+        persistentChannelId,
+        persistentChannelArn: persistentChannel.channelArn,
+        persistentPlaybackUrl: persistentChannel.playbackUrl,
+        persistentIngestEndpoint: persistentChannel.ingestEndpoint,
+
         // RAW stage (host + callers publish here)
         rawStageArn,
 
         // PROGRAM stage (virtual participant publishes program feed here)
         programStageArn,
 
-        // PROGRAM channel (viewers watch this)
-        programChannelArn,
-        programPlaybackUrl,
+        // RELAY channel (temporary channel for composition output)
+        relayChannelArn,
+        relayPlaybackUrl,
+        relayIngestEndpoint,
 
         // Composition ARN (will be set when composition starts)
         compositionArn: null,
@@ -248,6 +357,13 @@ export const handler = async (event) => {
         // Host token for joining RAW stage (not persisted in DDB for security)
         hostToken,
         hostParticipantId,
+        // Persistent channel info for frontend
+        persistentChannel: {
+          channelId: persistentChannelId,
+          channelArn: persistentChannel.channelArn,
+          playbackUrl: persistentChannel.playbackUrl,
+          ingestEndpoint: persistentChannel.ingestEndpoint,
+        },
       }),
     };
   } catch (error) {

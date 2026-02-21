@@ -40,12 +40,13 @@ export const handler = async (event) => {
     // Start composition with S3 recording
     // Use grid layout with featuredParticipantAttribute to enable source switching
     // When a participant has attribute "featured"="true", they will be shown full-screen
+    // Output directly to PERSISTENT channel (permanent channel with static playback URL)
     const composition = await ivsClient.send(new StartCompositionCommand({
       stageArn: session.ivs.rawStageArn,
       destinations: [
         {
           channel: {
-            channelArn: session.ivs.programChannelArn,
+            channelArn: session.ivs.persistentChannelArn,
             encoderConfigurationArn: ENCODER_CONFIG_ARN
           }
         },
